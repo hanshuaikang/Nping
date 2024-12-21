@@ -1,0 +1,10 @@
+[package]
+name = "nping"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "3.1.18"
+pnet = "0.30"
+ctrlc = "3.2"
+ratatui = "0.28.0"
