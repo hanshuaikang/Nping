@@ -9,7 +9,6 @@ use std::io::{self, Stdout};
 use std::error::Error;
 
 /// 初始化终端界面
-
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Error>> {
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;

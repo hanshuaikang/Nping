@@ -8,3 +8,5 @@ clap = "3.1.18"
 pnet = "0.30"
 ctrlc = "3.2"
 ratatui = "0.28.0"
+tokio = { version = "1.42.0", features = ["full"] }
+

@@ -6,12 +6,13 @@ use pnet::transport::{
 };
 use std::net::{IpAddr, ToSocketAddrs};
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use pnet::packet::icmp::echo_reply::EchoReplyPacket;
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
 use pnet::packet::icmp::{IcmpPacket, IcmpTypes};
 use pnet::packet::Packet;
-use crate::ICMP_BUFFER_SIZE;
+use crate::{network, ICMP_BUFFER_SIZE};
 use crate::ip_data::IpData;
 
 /// 初始化 ICMP 传输通道
@@ -50,60 +51,92 @@ pub fn resolve_target(target: &str) -> Result<IpAddr, Box<dyn std::error::Error>
 }
 
 
-pub fn send_ping(
-    tx: &mut TransportSender,
-    iter: &mut pnet::transport::IcmpTransportChannelIterator,
-    addr: &IpAddr,
+pub async fn send_ping<F>(
+    addr: IpAddr,
     i: usize,
-    seq: u16,
+    count: usize,
     interval: u64,
-    ip_data: &mut Vec<IpData>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut buffer = [0u8; ICMP_BUFFER_SIZE];
-    let mut packet = MutableEchoRequestPacket::new(&mut buffer).unwrap();
-    packet.set_icmp_type(IcmpTypes::EchoRequest);
-    packet.set_sequence_number(seq);
-    packet.set_identifier(0);
-    let checksum = pnet::packet::icmp::checksum(&IcmpPacket::new(packet.packet()).unwrap());
-    packet.set_checksum(checksum);
+    ip_data: Arc<Mutex<Vec<IpData>>>,
+    mut callback: F,
+    running: Arc<Mutex<bool>>,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: FnMut() + Send + 'static,
+{
+    // 直接展示内容
+    callback();
 
-    let now = Instant::now();
-    tx.send_to(packet, *addr)?;
-    ip_data[i].sent += 1; // sent
+    let (mut tx, mut rx) = network::init_transport_channel()?;
+    let mut iter = network::create_icmp_iter(&mut rx);
+    let mut seq = 1;
 
-    // Wait for reply
-    let timeout = Duration::from_secs(interval);
-    match iter.next_with_timeout(timeout)? {
-        Some((reply, _)) => {
-            if reply.get_icmp_type() == IcmpTypes::EchoReply {
-                if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
-                    if echo_reply.get_sequence_number() == seq {
-                        let rtt = now.elapsed().as_millis() as f64;
-                        ip_data[i].ip = addr.to_string(); // ip
-                        ip_data[i].received += 1; // received
-                        ip_data[i].last_attr = rtt; // last_attr
-                        ip_data[i].rtts.push_back(rtt); // rtts
-                        if ip_data[i].min_rtt == 0.0 || rtt < ip_data[i].min_rtt {
-                            ip_data[i].min_rtt = rtt; // min_rtt
-                        }
-                        if rtt > ip_data[i].max_rtt {
-                            ip_data[i].max_rtt = rtt; // max_rtt
-                        }
-                        if ip_data[i].rtts.len() > 10 {
-                            ip_data[i].rtts.pop_front();
-                            ip_data[i].pop_count += 1; // pop_count
+    let mut last_sent_time = Instant::now();
+
+    while ip_data.lock().unwrap()[i].sent < count  {
+
+        if !*running.lock().unwrap() {
+            break;
+        }
+
+        if !( last_sent_time.elapsed() >= Duration::from_millis(interval)) {
+            continue
+        }
+
+        let mut buffer = [0u8; ICMP_BUFFER_SIZE];
+        let mut packet = MutableEchoRequestPacket::new(&mut buffer).unwrap();
+        packet.set_icmp_type(IcmpTypes::EchoRequest);
+        packet.set_sequence_number(seq);
+        packet.set_identifier(0);
+        let checksum = pnet::packet::icmp::checksum(&IcmpPacket::new(packet.packet()).unwrap());
+        packet.set_checksum(checksum);
+
+        let now = Instant::now();
+        tx.send_to(packet, addr)?;
+        {
+            let mut data = ip_data.lock().unwrap();
+            data[i].sent += 1;
+        }
+
+        let timeout = Duration::from_millis(interval);
+        match iter.next_with_timeout(timeout)? {
+            Some((reply, _)) => {
+                if reply.get_icmp_type() == IcmpTypes::EchoReply {
+                    if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
+                        if echo_reply.get_sequence_number() == seq {
+                            let rtt = now.elapsed().as_millis() as f64;
+                            let mut data = ip_data.lock().unwrap();
+                            data[i].ip = addr.to_string();
+                            data[i].received += 1;
+                            data[i].last_attr = rtt;
+                            data[i].rtts.push_back(rtt);
+                            if data[i].min_rtt == 0.0 || rtt < data[i].min_rtt {
+                                data[i].min_rtt = rtt;
+                            }
+                            if rtt > data[i].max_rtt {
+                                data[i].max_rtt = rtt;
+                            }
+                            if data[i].rtts.len() > 10 {
+                                data[i].rtts.pop_front();
+                                data[i].pop_count += 1;
+                            }
                         }
                     }
                 }
             }
-        }
-        None => {
-            ip_data[i].rtts.push_back(0.0); // timeout
-            if ip_data[i].rtts.len() > 10 {
-                ip_data[i].rtts.pop_front();
-                ip_data[i].pop_count += 1; // pop_count
+            None => {
+                let mut data = ip_data.lock().unwrap();
+                data[i].rtts.push_back(0.0);
+                if data[i].rtts.len() > 10 {
+                    data[i].rtts.pop_front();
+                    data[i].pop_count += 1;
+                }
             }
         }
+
+        callback();
+        seq = seq.wrapping_add(1);
+        last_sent_time = Instant::now();
     }
+
     Ok(())
 }
