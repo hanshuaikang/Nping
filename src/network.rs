@@ -51,6 +51,7 @@ pub fn resolve_target(target: &str) -> Result<IpAddr, Box<dyn std::error::Error>
 }
 
 
+// rust
 pub async fn send_ping<F>(
     addr: IpAddr,
     i: usize,
@@ -59,34 +60,40 @@ pub async fn send_ping<F>(
     ip_data: Arc<Mutex<Vec<IpData>>>,
     mut callback: F,
     running: Arc<Mutex<bool>>,
+    tx: Arc<Mutex<TransportSender>>,
+    rx: Arc<Mutex<TransportReceiver>>,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
     F: FnMut() + Send + 'static,
 {
-    // 直接展示内容
-    callback();
-
-    let (mut tx, mut rx) = network::init_transport_channel()?;
-    let mut iter = network::create_icmp_iter(&mut rx);
-    let mut seq = 1;
+    // 唯一 identifier
+    let identifier = (std::process::id() as u16).wrapping_add(i as u16);
+    // 给 seq 加偏移
+    let mut seq = i as u16 * 1000 + 1;
 
     let mut last_sent_time = Instant::now();
 
-    while ip_data.lock().unwrap()[i].sent < count  {
+    callback();
+
+    while ip_data.lock().unwrap()[i].sent < count {
+        // let (mut tx, mut rx) = network::init_transport_channel()?;
+        let mut tx = tx.lock().unwrap();
+        let mut rx = rx.lock().unwrap();
+        let mut iter = create_icmp_iter(&mut *rx);
 
         if !*running.lock().unwrap() {
             break;
         }
-
-        if !( last_sent_time.elapsed() >= Duration::from_millis(interval)) {
-            continue
+        if last_sent_time.elapsed() < Duration::from_millis(interval) {
+            continue;
         }
 
         let mut buffer = [0u8; ICMP_BUFFER_SIZE];
         let mut packet = MutableEchoRequestPacket::new(&mut buffer).unwrap();
         packet.set_icmp_type(IcmpTypes::EchoRequest);
         packet.set_sequence_number(seq);
-        packet.set_identifier(0);
+        packet.set_identifier(identifier);
+
         let checksum = pnet::packet::icmp::checksum(&IcmpPacket::new(packet.packet()).unwrap());
         packet.set_checksum(checksum);
 
@@ -97,33 +104,31 @@ where
             data[i].sent += 1;
         }
 
-        let timeout = Duration::from_millis(interval);
-        match iter.next_with_timeout(timeout)? {
-            Some((reply, _)) => {
-                if reply.get_icmp_type() == IcmpTypes::EchoReply {
-                    if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
-                        if echo_reply.get_sequence_number() == seq {
-                            let rtt = now.elapsed().as_millis() as f64;
-                            let mut data = ip_data.lock().unwrap();
-                            data[i].ip = addr.to_string();
-                            data[i].received += 1;
-                            data[i].last_attr = rtt;
-                            data[i].rtts.push_back(rtt);
-                            if data[i].min_rtt == 0.0 || rtt < data[i].min_rtt {
-                                data[i].min_rtt = rtt;
-                            }
-                            if rtt > data[i].max_rtt {
-                                data[i].max_rtt = rtt;
-                            }
-                            if data[i].rtts.len() > 10 {
-                                data[i].rtts.pop_front();
-                                data[i].pop_count += 1;
-                            }
+        match iter.next_with_timeout(Duration::from_millis(interval))? {
+            Some((reply, _)) if reply.get_icmp_type() == IcmpTypes::EchoReply => {
+                if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
+                    // 只匹配对应identifier和seq
+                    if echo_reply.get_identifier() == identifier && echo_reply.get_sequence_number() == seq {
+                        let rtt = now.elapsed().as_millis() as f64;
+                        let mut data = ip_data.lock().unwrap();
+                        data[i].ip = addr.to_string();
+                        data[i].received += 1;
+                        data[i].last_attr = rtt;
+                        data[i].rtts.push_back(rtt);
+                        if data[i].min_rtt == 0.0 || rtt < data[i].min_rtt {
+                            data[i].min_rtt = rtt;
+                        }
+                        if rtt > data[i].max_rtt {
+                            data[i].max_rtt = rtt;
+                        }
+                        if data[i].rtts.len() > 10 {
+                            data[i].rtts.pop_front();
+                            data[i].pop_count += 1;
                         }
                     }
                 }
             }
-            None => {
+            Some(_) | None => {
                 let mut data = ip_data.lock().unwrap();
                 data[i].rtts.push_back(0.0);
                 if data[i].rtts.len() > 10 {

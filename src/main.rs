@@ -105,6 +105,10 @@ async fn run_app(
         addrs.push(addr);
     }
 
+    let (tx, rx) = network::init_transport_channel()?;
+    let tx = Arc::new(Mutex::new(tx));
+    let rx = Arc::new(Mutex::new(rx));
+
     let interval = if interval == 0 { 500 } else { interval * 1000 };
     let mut tasks = Vec::new();
     for (i, addr) in addrs.iter().enumerate() {
@@ -112,13 +116,15 @@ async fn run_app(
         let addr = *addr;
         let terminal_guard = terminal_guard.clone();
         let running = running.clone();
+        let tx_clone = tx.clone();
+        let rx_clone = rx.clone();
         let task = task::spawn({
             let ip_data = ip_data.clone();
             async move {
                 send_ping(addr, i, count, interval, ip_data.clone(), move || {
                     let mut terminal_guard = terminal_guard.lock().unwrap();
                     ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &ip_data.lock().unwrap()).unwrap();
-                }, running.clone()).await.unwrap();
+                }, running.clone(), tx_clone, rx_clone).await.unwrap();
             }
         });
         tasks.push(task);
