@@ -12,7 +12,6 @@ use pnet::packet::icmp::echo_reply::EchoReplyPacket;
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
 use pnet::packet::icmp::{IcmpPacket, IcmpTypes};
 use pnet::packet::Packet;
-use crate::{ICMP_BUFFER_SIZE};
 use crate::ip_data::IpData;
 
 /// 初始化 ICMP 传输通道
@@ -56,7 +55,8 @@ pub async fn send_ping<F>(
     addr: IpAddr,
     i: usize,
     count: usize,
-    interval: u64,
+    interval: i32,
+    size: i32,
     ip_data: Arc<Mutex<Vec<IpData>>>,
     mut callback: F,
     running: Arc<Mutex<bool>>,
@@ -68,45 +68,53 @@ where
 {
     // 唯一 identifier
     let identifier = (std::process::id() as u16).wrapping_add(i as u16);
-    // 给 seq 加偏移
+    // 给 seq 加偏移, 防止与其他进程冲突
     let mut seq = i as u16 * 1000 + 1;
+
 
     let mut last_sent_time = Instant::now();
 
+    // draw ui first
     callback();
 
     while ip_data.lock().unwrap()[i].sent < count {
-        // let (mut tx, mut rx) = network::init_transport_channel()?;
         let mut tx = tx.lock().unwrap();
         let mut rx = rx.lock().unwrap();
         let mut iter = create_icmp_iter(&mut *rx);
 
+        // 如果 running 为 false 则退出
         if !*running.lock().unwrap() {
             break;
         }
-        if last_sent_time.elapsed() < Duration::from_millis(interval) {
+
+        if last_sent_time.elapsed() < Duration::from_millis(interval as u64) {
             continue;
         }
 
-        let mut buffer = [0u8; ICMP_BUFFER_SIZE];
+
+        let mut buffer = vec![0u8; size as usize];
         let mut packet = MutableEchoRequestPacket::new(&mut buffer).unwrap();
         packet.set_icmp_type(IcmpTypes::EchoRequest);
         packet.set_sequence_number(seq);
+        // add identifier
         packet.set_identifier(identifier);
 
         let checksum = pnet::packet::icmp::checksum(&IcmpPacket::new(packet.packet()).unwrap());
         packet.set_checksum(checksum);
 
         let now = Instant::now();
-        tx.send_to(packet, addr)?;
+        // send a packet
+        tx.send_to(packet, addr).unwrap();
         {
             let mut data = ip_data.lock().unwrap();
+            // record sent count
             data[i].sent += 1;
         }
-        match iter.next_with_timeout(Duration::from_millis(interval))? {
+        // the timeout == interval
+        match iter.next_with_timeout(Duration::from_millis(interval as u64))? {
             Some((reply, _)) if reply.get_icmp_type() == IcmpTypes::EchoReply => {
                 if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
-                    // 只匹配对应identifier和seq
+                    // 只匹配对应 identifier 和 seq
                     if echo_reply.get_identifier() == identifier && echo_reply.get_sequence_number() == seq {
                         let rtt = now.elapsed().as_millis() as f64;
                         let mut data = ip_data.lock().unwrap();
@@ -136,7 +144,7 @@ where
                 }
             }
         }
-
+        // draw ui
         callback();
         seq = seq.wrapping_add(1);
         last_sent_time = Instant::now();
