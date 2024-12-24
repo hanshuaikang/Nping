@@ -15,7 +15,7 @@ use crate::network::send_ping;
 #[command(
     version = "v0.1.0",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
-    about = "nping with concurrent, chart, multiple addresses, real -time data update"
+    about = "nping with concurrent,chart,multiple addresses,real-time data update"
 )]
 struct Args {
     /// Target IP address or hostname to ping
