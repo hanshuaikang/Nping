@@ -1,3 +1,4 @@
+use std::env;
 use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -21,6 +22,7 @@ pub fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Re
     Ok(())
 }
 
+
 /// 绘制终端界面
 pub fn draw_interface<B: Backend>(
     terminal: &mut Terminal<B>,
@@ -29,7 +31,6 @@ pub fn draw_interface<B: Backend>(
     terminal.draw(|f| {
         let size = f.area();
 
-        // 动态计算每个区域的宽度
         let constraints: Vec<Constraint> = ip_data.iter().map(|_| Constraint::Percentage(100 / ip_data.len() as u16)).collect();
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -52,13 +53,16 @@ pub fn draw_interface<B: Backend>(
                         [
                             Constraint::Length(1),
                             Constraint::Length(1),
-                            Constraint::Length(1),
+                            Constraint::Length(2),
                             Constraint::Percentage(60),
+                            Constraint::Length(1),
                             Constraint::Percentage(40),
                         ]
                             .as_ref(),
                     )
                     .split(area);
+
+
 
                 let avg_rtt = if !data.rtts.is_empty() {
                     let sum: f64 = data.rtts.iter().sum();
@@ -81,36 +85,36 @@ pub fn draw_interface<B: Backend>(
                 };
 
                 let target_text = Line::from(vec![
-                    Span::styled("ip: ", Style::default().fg(Color::Black)),
+                    Span::styled("target: ", Style::default()),
                     Span::styled(&data.addr, Style::default().fg(Color::Green)),
                 ]);
 
                 let text = Line::from(vec![
-                    Span::styled("last: ", Style::default().fg(Color::Black)),
+                    Span::styled("last: ", Style::default()),
                     Span::styled(format!("{:?}ms", data.last_attr), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("avg rtt : ", Style::default().fg(Color::Black)),
+                    Span::styled("avg rtt : ", Style::default()),
                     Span::styled(format!("{:.2} ms", avg_rtt), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("jitter: ", Style::default().fg(Color::Black)),
+                    Span::styled("jitter: ", Style::default()),
                     Span::styled(format!("{:.2} ms", jitter), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("max: ", Style::default().fg(Color::Black)),
+                    Span::styled("max: ", Style::default()),
                     Span::styled(format!("{:.2} ms", data.max_rtt), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("min: ", Style::default().fg(Color::Black)),
+                    Span::styled("min: ", Style::default()),
                     Span::styled(format!("{:.2} ms", data.min_rtt), Style::default().fg(Color::Green)),
                     Span::raw("  "),
                 ]);
 
                 let loss_text = Line::from(vec![
-                    Span::styled("sent: ", Style::default().fg(Color::Black)),
+                    Span::styled("sent: ", Style::default()),
                     Span::styled(format!("{}", data.sent), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("received: ", Style::default().fg(Color::Black)),
+                    Span::styled("received: ", Style::default()),
                     Span::styled(format!("{}", data.received), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("loss: ", Style::default().fg(Color::Black)),
+                    Span::styled("loss: ", Style::default()),
                     Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(Color::Green)),
                 ]);
 
@@ -143,21 +147,22 @@ pub fn draw_interface<B: Backend>(
                     .rtts
                     .iter()
                     .enumerate()
-                    .map(|(i, _)| Span::styled(format!("{}", i + 1 + data.pop_count), Style::default().fg(Color::Black)))
+                    .map(|(i, _)| Span::styled(format!("{}", i + 1 + data.pop_count), Style::default()))
                     .collect::<Vec<Span>>();
 
                 let chart = Chart::new(datasets)
-                    // .block(Block::default().style(Style::default().bg(Color::White).fg(Color::Black)))
+                    // .block(Block::default().style(Style::default().bg(Color::White)))
                     .x_axis(
                         Axis::default()
                             .title("count")
-                            .style(Style::default().fg(Color::Black))
+                            .style(Style::default())
                             .bounds([1.0 + data.pop_count as f64, 1.0 + data.pop_count as f64 + data.rtts.len() as f64 - 1.0])
                             .labels(x_range),
                     )
                     .y_axis(
                         Axis::default()
-                            .style(Style::default().fg(Color::Black))
+                            .title("rtt")
+                            .style(Style::default())
                             .bounds(y_bounds)
                             .labels(
                                 (0..=5)
@@ -165,7 +170,7 @@ pub fn draw_interface<B: Backend>(
                                     .collect::<Vec<Span>>(),
                             ),
                     )
-                    .style(Style::default().bg(Color::White).fg(Color::Black));
+                    .style(Style::default());
 
                 f.render_widget(chart, inner_chunks[3]);
 
@@ -180,16 +185,25 @@ pub fn draw_interface<B: Backend>(
                         } else {
                             format!("{}ms", rtt)
                         };
+                        let display_color = if rtt == 0.0 {
+                            Color::Red
+                        } else {
+                            Color::Green
+                        };
                         Line::from(vec![
-                            Span::styled(&data.ip, Style::default().fg(Color::Black)),
+                            Span::styled(&data.ip, Style::default()),
                             Span::raw(" "),
-                            Span::styled(display_text, Style::default().fg(Color::Green)),
+                            Span::styled(display_text, Style::default().fg(display_color)),
                         ])
                     })
                     .collect();
 
-                let recent_paragraph = Paragraph::new(recent_records).block(Block::default().title("Recent Records"));
-                f.render_widget(recent_paragraph, inner_chunks[4]);
+                let blank_line = Line::from(vec![]);
+                let blank_paragraph = Paragraph::new(blank_line).block(Block::default());
+                f.render_widget(blank_paragraph, inner_chunks[4]);
+
+                let recent_paragraph = Paragraph::new(recent_records).block(Block::default().title("Recent Records:"));
+                f.render_widget(recent_paragraph, inner_chunks[5]);
             };
 
             render_content(f, chunks[i]);

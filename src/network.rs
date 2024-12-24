@@ -12,7 +12,7 @@ use pnet::packet::icmp::echo_reply::EchoReplyPacket;
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
 use pnet::packet::icmp::{IcmpPacket, IcmpTypes};
 use pnet::packet::Packet;
-use crate::{network, ICMP_BUFFER_SIZE};
+use crate::{ICMP_BUFFER_SIZE};
 use crate::ip_data::IpData;
 
 /// 初始化 ICMP 传输通道
@@ -103,7 +103,6 @@ where
             let mut data = ip_data.lock().unwrap();
             data[i].sent += 1;
         }
-
         match iter.next_with_timeout(Duration::from_millis(interval))? {
             Some((reply, _)) if reply.get_icmp_type() == IcmpTypes::EchoReply => {
                 if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
