@@ -75,7 +75,7 @@ pub fn draw_interface<B: Backend>(
                             [
                                 Constraint::Length(1),
                                 Constraint::Percentage(5),
-                                Constraint::Length(3),
+                                Constraint::Percentage(5),
                                 Constraint::Percentage(60),
                                 Constraint::Length(1),
                                 Constraint::Length(5),

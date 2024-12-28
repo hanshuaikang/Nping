@@ -48,9 +48,7 @@ pub fn resolve_target(target: &str) -> Result<IpAddr, Box<dyn std::error::Error>
     };
     Ok(addr)
 }
-
-
-// rust
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub async fn send_ping<F>(
     addr: IpAddr,
     i: usize,
@@ -145,6 +143,112 @@ where
             }
         }
         // draw ui
+        callback();
+        seq = seq.wrapping_add(1);
+        last_sent_time = Instant::now();
+    }
+
+    Ok(())
+}
+
+
+#[cfg(target_os = "windows")]
+pub async fn send_ping<F>(
+    addr: IpAddr,
+    i: usize,
+    count: usize,
+    interval: i32,
+    size: i32,
+    ip_data: Arc<Mutex<Vec<IpData>>>,
+    mut callback: F,
+    running: Arc<Mutex<bool>>,
+    tx: Arc<Mutex<TransportSender>>,
+    rx: Arc<Mutex<TransportReceiver>>,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: FnMut() + Send + 'static,
+{
+    let identifier = (std::process::id() as u16).wrapping_add(i as u16);
+    let mut seq = i as u16 * 1000 + 1;
+    let mut last_sent_time = Instant::now();
+    callback();
+
+    while ip_data.lock().unwrap()[i].sent < count {
+        let mut tx = tx.lock().unwrap();
+        let mut rx = rx.lock().unwrap();
+        let mut iter = create_icmp_iter(&mut *rx);
+
+        if !*running.lock().unwrap() {
+            break;
+        }
+
+        if last_sent_time.elapsed() < Duration::from_millis(interval as u64) {
+            continue;
+        }
+
+        let mut buffer = vec![0u8; size as usize];
+        let mut packet = MutableEchoRequestPacket::new(&mut buffer).unwrap();
+        packet.set_icmp_type(IcmpTypes::EchoRequest);
+        packet.set_sequence_number(seq);
+        packet.set_identifier(identifier);
+
+        let checksum = pnet::packet::icmp::checksum(&IcmpPacket::new(packet.packet()).unwrap());
+        packet.set_checksum(checksum);
+
+        let now = Instant::now();
+        tx.send_to(packet, addr).unwrap();
+        {
+            let mut data = ip_data.lock().unwrap();
+            data[i].sent += 1;
+        }
+
+        let timeout = Duration::from_millis(interval as u64);
+        let mut received_reply = false;
+
+        while now.elapsed() < timeout {
+            match iter.next() {
+                Ok((reply, _)) => {
+                    if reply.get_icmp_type() == IcmpTypes::EchoReply {
+                        if let Some(echo_reply) = EchoReplyPacket::new(reply.packet()) {
+                            if echo_reply.get_identifier() == identifier && echo_reply.get_sequence_number() == seq {
+                                let rtt = now.elapsed().as_millis() as f64;
+                                let mut data = ip_data.lock().unwrap();
+                                data[i].ip = addr.to_string();
+                                data[i].received += 1;
+                                data[i].last_attr = rtt;
+                                data[i].rtts.push_back(rtt);
+                                if data[i].min_rtt == 0.0 || rtt < data[i].min_rtt {
+                                    data[i].min_rtt = rtt;
+                                }
+                                if rtt > data[i].max_rtt {
+                                    data[i].max_rtt = rtt;
+                                }
+                                if data[i].rtts.len() > 10 {
+                                    data[i].rtts.pop_front();
+                                    data[i].pop_count += 1;
+                                }
+                                received_reply = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    received_reply = false;
+                    break;
+                }
+            }
+        }
+
+        if !received_reply {
+            let mut data = ip_data.lock().unwrap();
+            data[i].rtts.push_back(0.0);
+            if data[i].rtts.len() > 10 {
+                data[i].rtts.pop_front();
+                data[i].pop_count += 1;
+            }
+        }
+
         callback();
         seq = seq.wrapping_add(1);
         last_sent_time = Instant::now();
