@@ -2,10 +2,15 @@
 <p align="center">
     <em>Nping is a Ping tool developed in Rust using the ICMP protocol. It supports concurrent Ping for multiple addresses, visual chart display, real-time data updates, and other features.</em>
 </p>
+<p align="center">
+    <img src="docs/imgs/nb.gif" alt="Nping demo" width="50%">
+</p>
 
 [中文文档](./README_ZH.md)
 
 ![img.png](docs/imgs/img.png)
+
+
 
 
 ## Feature:
