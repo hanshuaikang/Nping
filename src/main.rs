@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
-    let targets: Vec<&str> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
+    let targets: Vec<String> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
     // 运行主应用程序
     let res = run_app(targets, args.count, args.interval, args.size, running.clone()).await;
 
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // 应用程序主逻辑
 async fn run_app(
-    targets: Vec<&str>,
+    targets: Vec<String>,
     count: usize,
     interval: i32,
     size: i32,
