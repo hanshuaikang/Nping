@@ -3,50 +3,43 @@ mod network;
 mod ui;
 mod terminal;
 mod ip_data;
-use clap::{App, Arg};
+use clap::Parser;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use tokio::task;
 use crate::ip_data::IpData;
 use crate::network::send_ping;
 
-const ICMP_BUFFER_SIZE: usize = 64;
+
+#[derive(Parser, Debug)]
+#[command(
+    version = "v0.1.0",
+    author = "hanshuaikang<https://github.com/hanshuaikang>",
+    about = "nping with concurrent,chart,multiple addresses,real-time data update"
+)]
+struct Args {
+    /// Target IP address or hostname to ping
+    #[arg(help = "target IP address or hostname to ping", required = true)]
+    target: Vec<String>,
+
+    /// Number of pings to send
+    #[arg(short, long, default_value_t = 10000, help = "Number of pings to send")]
+    count: usize,
+
+    /// Interval in seconds between pings
+    #[arg(short, long, default_value_t = 0, help = "Interval in seconds between pings")]
+    interval: i32,
+
+    #[arg(short, long, default_value_t = 64, help = "Packet size")]
+    size: i32,
+}
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 解析命令行参数
-    let matches = App::new("rping")
-        .version("1.0")
-        .author("Your Name")
-        .about("Ping with real-time plot")
-        .arg(
-            Arg::new("TARGET")
-                .help("Target IP address or hostname to ping")
-                .required(true)
-                .index(1)
-                .multiple_values(true),
-        )
-        .arg(
-            Arg::new("count")
-                .short('c')
-                .long("count")
-                .takes_value(true)
-                .default_value("100")
-                .help("Number of pings to send"),
-        )
-        .arg(
-            Arg::new("interval")
-                .short('i')
-                .long("interval")
-                .takes_value(true)
-                .default_value("0")
-                .help("Interval in seconds between pings"),
-        )
-        .get_matches();
-
-    let targets: Vec<&str> = matches.values_of("TARGET").unwrap().collect();
-    let count: usize = matches.value_of("count").unwrap_or("100").parse().unwrap();
-    let interval: u64 = matches.value_of("interval").unwrap_or("0").parse().unwrap();
+    // 解析命令行参数
+    let args = Args::parse();
 
     // 初始化终端界面
     ui::init_terminal()?;
@@ -59,11 +52,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut running = running.lock().unwrap();
             *running = false;
         })
-            .expect("无法设置 Ctrl+C 处理器");
+            .expect("cat not set Ctrl+C handler");
     }
 
     // 运行主应用程序
-    let res = run_app(targets, count, interval, running.clone()).await;
+    let res = run_app(args.target, args.count, args.interval, args.size, running.clone()).await;
 
     // 处理可能的错误
     if let Err(err) = res {
@@ -75,9 +68,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // 应用程序主逻辑
 async fn run_app(
-    targets: Vec<&str>,
+    targets: Vec<String>,
     count: usize,
-    interval: u64,
+    interval: i32,
+    size: i32,
     running: Arc<Mutex<bool>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
@@ -86,7 +80,7 @@ async fn run_app(
     let terminal_guard = Arc::new(Mutex::new(terminal::TerminalGuard::new(terminal)));
 
     // Define statistics variables
-    let ip_data = Arc::new(Mutex::new(targets.iter().map(|&target| IpData {
+    let ip_data = Arc::new(Mutex::new(targets.iter().map(|target| IpData {
         ip: String::from(""),
         addr: target.to_string(),
         rtts: VecDeque::new(),
@@ -121,7 +115,7 @@ async fn run_app(
         let task = task::spawn({
             let ip_data = ip_data.clone();
             async move {
-                send_ping(addr, i, count, interval, ip_data.clone(), move || {
+                send_ping(addr, i, count, interval, size, ip_data.clone(), move || {
                     let mut terminal_guard = terminal_guard.lock().unwrap();
                     ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &ip_data.lock().unwrap()).unwrap();
                 }, running.clone(), tx_clone, rx_clone).await.unwrap();

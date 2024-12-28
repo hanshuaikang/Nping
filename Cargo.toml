@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = "3.1.18"
-pnet = "0.30"
+clap = { version = "4.5.23", features = ["derive"] }
+pnet = "0.35.0"
 ctrlc = "3.2"
-ratatui = "0.28.0"
+ratatui = "0.29.0"
 tokio = { version = "1.42.0", features = ["full"] }
 
