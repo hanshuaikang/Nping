@@ -4,7 +4,7 @@
     <em>Nping 是一个基于 Rust 开发使用 ICMP 协议的 Ping 工具, 支持多地址并发 Ping, 可视化图表展示, 数据实时更新等特性 </em>
 </p>
 <p align="center">
-    <img src="docs/imgs/nb.gif" alt="Nping demo" width="50%">
+    <img src="docs/imgs/nb.gif" alt="Nping demo" width="30%">
 </p>
 
 ![img.png](docs/imgs/img.png)
