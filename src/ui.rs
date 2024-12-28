@@ -51,7 +51,7 @@ pub fn draw_interface<B: Backend>(
                 row_data.iter().map(|_| Constraint::Percentage(20)).collect()
             } else {
                 let mut size = 100;
-                if rows > 5 {
+                if ip_data.len() > 5 {
                     size = row_data.len() * 20;
                 }
                 row_data.iter().map(|_| Constraint::Percentage(size as u16 / row_data.len() as u16)).collect()
