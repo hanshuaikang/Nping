@@ -74,11 +74,11 @@ pub fn draw_interface<B: Backend>(
                         .constraints(
                             [
                                 Constraint::Length(1),
-                                Constraint::Percentage(10),
-                                Constraint::Length(2),
+                                Constraint::Percentage(5),
+                                Constraint::Length(3),
                                 Constraint::Percentage(60),
                                 Constraint::Length(1),
-                                Constraint::Percentage(40),
+                                Constraint::Length(5),
                             ]
                                 .as_ref(),
                         )
