@@ -8,21 +8,21 @@ use crate::ip_data::IpData;
 use std::io::{self, Stdout};
 use std::error::Error;
 
-/// 初始化终端界面
+/// init terminal
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Error>> {
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
     Ok(terminal)
 }
-/// 恢复终端设置
+/// restore terminal
 pub fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
     Ok(())
 }
 
 
-/// 绘制终端界面
+/// draw ui interface
 pub fn draw_interface<B: Backend>(
     terminal: &mut Terminal<B>,
     ip_data: &[IpData],
@@ -32,6 +32,7 @@ pub fn draw_interface<B: Backend>(
         let rows = (ip_data.len() as f64 / 5.0).ceil() as usize;
         let mut chunks = Vec::new();
 
+        // compute the constraints
         for _ in 0..rows {
             chunks.push(Constraint::Percentage(100 / rows as u16));
         }
@@ -50,6 +51,7 @@ pub fn draw_interface<B: Backend>(
             let horizontal_constraints: Vec<Constraint> = if row_data.len() == 5 {
                 row_data.iter().map(|_| Constraint::Percentage(20)).collect()
             } else {
+                // when the number of targets is less than 5, we need to adjust the size of each target
                 let mut size = 100;
                 if ip_data.len() > 5 {
                     size = row_data.len() * 20;
@@ -64,12 +66,15 @@ pub fn draw_interface<B: Backend>(
                 .split(*vertical_chunk);
 
             for (i, data) in row_data.iter().enumerate() {
+                // compute the loss package rate for each target
                 let loss_pkg = if data.sent > 0 {
                     100.0 - (data.received as f64 / data.sent as f64 * 100.0)
                 } else {
                     0.0
                 };
 
+
+                // render the content of each target
                 let render_content = |f: &mut Frame, area: Rect| {
                     let inner_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -81,12 +86,13 @@ pub fn draw_interface<B: Backend>(
                                 Constraint::Percentage(5),
                                 Constraint::Percentage(60),
                                 Constraint::Length(1),
-                                Constraint::Length(5),
+                                Constraint::Percentage(30),
                             ]
                                 .as_ref(),
                         )
                         .split(area);
 
+                    // render the content of each target
                     let avg_rtt = if !data.rtts.is_empty() {
                         let sum: f64 = data.rtts.iter().sum();
                         sum / data.rtts.len() as f64
@@ -94,6 +100,7 @@ pub fn draw_interface<B: Backend>(
                         0.0
                     };
 
+                    // calculate the jitter
                     let jitter = if data.rtts.len() > 1 {
                         let diffs: Vec<f64> = data
                             .rtts
@@ -107,6 +114,7 @@ pub fn draw_interface<B: Backend>(
                         0.0
                     };
 
+                    // render the target text
                     let target_text = Line::from(vec![
                         Span::styled("target: ", Style::default()),
                         Span::styled(&data.addr, Style::default().fg(Color::Green)),

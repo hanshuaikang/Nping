@@ -15,7 +15,7 @@ use crate::network::send_ping;
 #[command(
     version = "v0.1.0",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
-    about = "nping with concurrent,chart,multiple addresses,real-time data update"
+    about = "Nping with concurrent,chart,multiple addresses,real-time data update"
 )]
 struct Args {
     /// Target IP address or hostname to ping
@@ -23,7 +23,7 @@ struct Args {
     target: Vec<String>,
 
     /// Number of pings to send
-    #[arg(short, long, default_value_t = 10000, help = "Number of pings to send")]
+    #[arg(short, long, default_value_t = 100000, help = "Number of pings to send")]
     count: usize,
 
     /// Interval in seconds between pings
@@ -37,14 +37,13 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 解析命令行参数
-    // 解析命令行参数
+    // parse command line arguments
     let args = Args::parse();
 
-    // 初始化终端界面
+    // init terminal
     ui::init_terminal()?;
 
-    // 设置 Ctrl+C 处理
+    // set Ctrl+C handler
     let running = Arc::new(Mutex::new(true));
     {
         let running = running.clone();
@@ -57,10 +56,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     let targets: Vec<String> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
-    // 运行主应用程序
+    // run  app
     let res = run_app(targets, args.count, args.interval, args.size, running.clone()).await;
 
-    // 处理可能的错误
+    // if error print error message and exit
     if let Err(err) = res {
         eprintln!("{}", err);
         std::process::exit(1);
@@ -68,7 +67,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// 应用程序主逻辑
 async fn run_app(
     targets: Vec<String>,
     count: usize,

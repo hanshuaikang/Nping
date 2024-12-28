@@ -14,18 +14,18 @@ use pnet::packet::icmp::{IcmpPacket, IcmpTypes};
 use pnet::packet::Packet;
 use crate::ip_data::IpData;
 
-/// 初始化 ICMP 传输通道
+/// init transport channel
 pub fn init_transport_channel() -> Result<(TransportSender, TransportReceiver), Box<dyn std::error::Error>> {
     let (tx, rx) = transport_channel(1024, Layer4(Ipv4(IpNextHeaderProtocols::Icmp)))?;
     Ok((tx, rx))
 }
 
-/// 创建 ICMP 包迭代器
-pub fn create_icmp_iter<'a>(rx: &'a mut TransportReceiver) -> pnet::transport::IcmpTransportChannelIterator<'a> {
+/// create icmp packet iterator
+pub fn create_icmp_iter(rx: &mut TransportReceiver) -> pnet::transport::IcmpTransportChannelIterator {
     icmp_packet_iter(rx)
 }
 
-/// 解析目标地址
+/// parse target address
 pub fn resolve_target(target: &str) -> Result<IpAddr, Box<dyn std::error::Error>> {
     let addr = match IpAddr::from_str(target) {
         Ok(ip) => ip,
@@ -64,11 +64,10 @@ pub async fn send_ping<F>(
 where
     F: FnMut() + Send + 'static,
 {
-    // 唯一 identifier
+    // set a unique identifier for each process
     let identifier = (std::process::id() as u16).wrapping_add(i as u16);
-    // 给 seq 加偏移, 防止与其他进程冲突
-    let mut seq = i as u16 * 1000 + 1;
-
+    // set a unique sequence number for each process
+    let mut seq = i as u16 * count as u16 + 1;
 
     let mut last_sent_time = Instant::now();
 
@@ -80,7 +79,7 @@ where
         let mut rx = rx.lock().unwrap();
         let mut iter = create_icmp_iter(&mut *rx);
 
-        // 如果 running 为 false 则退出
+        // if ctrl+c is pressed, break the loop
         if !*running.lock().unwrap() {
             break;
         }
@@ -88,7 +87,6 @@ where
         if last_sent_time.elapsed() < Duration::from_millis(interval as u64) {
             continue;
         }
-
 
         let mut buffer = vec![0u8; size as usize];
         let mut packet = MutableEchoRequestPacket::new(&mut buffer).unwrap();
