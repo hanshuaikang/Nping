@@ -4,7 +4,7 @@ mod ui;
 mod terminal;
 mod ip_data;
 use clap::Parser;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use tokio::task;
 use crate::ip_data::IpData;
@@ -55,8 +55,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("cat not set Ctrl+C handler");
     }
 
+
+    let targets: Vec<&str> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
     // 运行主应用程序
-    let res = run_app(args.target, args.count, args.interval, args.size, running.clone()).await;
+    let res = run_app(targets, args.count, args.interval, args.size, running.clone()).await;
 
     // 处理可能的错误
     if let Err(err) = res {
@@ -68,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // 应用程序主逻辑
 async fn run_app(
-    targets: Vec<String>,
+    targets: Vec<&str>,
     count: usize,
     interval: i32,
     size: i32,

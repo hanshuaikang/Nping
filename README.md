@@ -1,32 +1,31 @@
-
 <h1 align="center"> 🏎 Nping </h1>
 <p align="center">
-    <em>Nping 是一个基于 Rust 开发使用 ICMP 协议的 Ping 工具, 支持多地址并发 Ping, 可视化图表展示, 数据实时更新等特性 </em>
+    <em>Nping is a Ping tool developed in Rust using the ICMP protocol. It supports concurrent Ping for multiple addresses, visual chart display, real-time data updates, and other features.</em>
 </p>
 
+[中文文档](./README_ZH.md)
 
 ![img.png](docs/imgs/img.png)
 
 
 ## Feature:
-- 支持多地址并发同时 Ping
-- 支持可视化延迟展示
-- 实时最大最小平均延迟丢包率等指标展示
+- Supports concurrent Ping for multiple addresses
+- Supports visual latency display
+- Real-time display of maximum, minimum, average latency, packet loss rate, and other metrics
 
 ## TODO:
-- 支持动态布局展示
-- 更好看的 UI 实现
+- Support dynamic layout display
+- Implement a better-looking UI
 
 ## Usage
 
 ```bash
-
-# 由于使用 pnet 包实现, 需要 root 权限
-sudo sudo nping www.baidu.com www.google.com www.apple.com www.sina.com -c 20
+# Since the pnet package is used, root privileges are required
+sudo nping www.baidu.com www.google.com www.apple.com www.sina.com -c 20
 
 # nping --help
 
-nping with concurrent, chart, multiple addresses, real -time data update
+nping with concurrent, chart, multiple addresses, real-time data update
 
 Usage: nping [OPTIONS] <TARGET>...
 
@@ -36,9 +35,6 @@ Arguments:
 Options:
   -c, --count <COUNT>        Number of pings to send [default: 10000]
   -i, --interval <INTERVAL>  Interval in seconds between pings [default: 0]
-  -s, --size <SIZE>          packet size [default: 32]
+  -s, --size <SIZE>          Packet size [default: 32]
   -h, --help                 Print help
   -V, --version              Print version
-
-```
-
