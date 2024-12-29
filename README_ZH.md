@@ -7,7 +7,9 @@
     <img src="docs/imgs/nb.gif" alt="Nping demo" width="30%">
 </p>
 
-![img.png](docs/imgs/img.png)
+<p align="center">
+    <img src="docs/imgs/img.gif" alt="Nping demo" width="100%">
+</p>
 
 
 ## Feature:

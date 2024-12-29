@@ -8,7 +8,12 @@
 
 [中文文档](./README_ZH.md)
 
-![img.png](docs/imgs/img.png)
+<p align="center">
+    <img src="docs/imgs/img.gif" alt="Nping demo" width="100%">
+</p>
+
+
+
 
 
 
