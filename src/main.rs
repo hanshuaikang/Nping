@@ -40,9 +40,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse command line arguments
     let args = Args::parse();
 
-    // init terminal
-    ui::init_terminal()?;
-
     // set Ctrl+C handler
     let running = Arc::new(Mutex::new(true));
     {
@@ -87,6 +84,9 @@ async fn run_app(
     size: i32,
     running: Arc<Mutex<bool>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+
+    // init terminal
+    ui::init_terminal()?;
 
     // Create terminal instance
     let terminal = ui::init_terminal().unwrap();
