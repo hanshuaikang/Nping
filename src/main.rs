@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         count = network::calculate_max_pings_per_address(targets.len());
     }
 
-    // 校验 count * target 数量是否超过 65535
+    // check if the number of pings exceeds the maximum number of pings
     if args.count > 0 && targets.len() * args.count > network::MAX_PINGS {
         let max_count = network::calculate_max_pings_per_address(targets.len());
         eprintln!("when you ping {} address, the maximum number of pings is {}", targets.len(), max_count);
