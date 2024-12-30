@@ -14,6 +14,9 @@ use pnet::packet::icmp::{IcmpPacket, IcmpTypes};
 use pnet::packet::Packet;
 use crate::ip_data::IpData;
 
+// why sub 1? because the sequence number starts from 1
+pub const MAX_PINGS: usize = 65535 - 1;
+
 /// init transport channel
 pub fn init_transport_channel() -> Result<(TransportSender, TransportReceiver), Box<dyn std::error::Error>> {
     let (tx, rx) = transport_channel(1024, Layer4(Ipv4(IpNextHeaderProtocols::Icmp)))?;
@@ -27,7 +30,7 @@ pub fn create_icmp_iter(rx: &mut TransportReceiver) -> pnet::transport::IcmpTran
 
 pub fn calculate_max_pings_per_address(num_addresses: usize) -> usize {
     // the maximum number of pings sequence number is 65535
-    (65535 - 1) / num_addresses
+    MAX_PINGS / num_addresses
 }
 
 /// parse target address
