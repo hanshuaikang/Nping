@@ -15,6 +15,7 @@ pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Err
     terminal.clear()?;
     Ok(terminal)
 }
+
 /// restore terminal
 pub fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
@@ -73,7 +74,6 @@ pub fn draw_interface<B: Backend>(
                     0.0
                 };
 
-
                 // render the content of each target
                 let render_content = |f: &mut Frame, area: Rect| {
                     let inner_chunks = Layout::default()
@@ -81,12 +81,11 @@ pub fn draw_interface<B: Backend>(
                         .margin(1)
                         .constraints(
                             [
+                                Constraint::Length(1),  // 目标标题
+                                Constraint::Max(4),  // 段落占用较少行
+                                Constraint::Max(20),     // chart 动态扩大
                                 Constraint::Length(1),
-                                Constraint::Percentage(5),
-                                Constraint::Percentage(5),
-                                Constraint::Percentage(60),
-                                Constraint::Length(1),
-                                Constraint::Percentage(30),
+                                Constraint::Length(6),
                             ]
                                 .as_ref(),
                         )
@@ -120,7 +119,7 @@ pub fn draw_interface<B: Backend>(
                         Span::styled(&data.addr, Style::default().fg(Color::Green)),
                     ]);
 
-                    let text = Line::from(vec![
+                    let base_metric_text = Line::from(vec![
                         Span::styled("last: ", Style::default()),
                         Span::styled(format!("{:?}ms", data.last_attr), Style::default().fg(Color::Green)),
                         Span::raw("  "),
@@ -136,9 +135,6 @@ pub fn draw_interface<B: Backend>(
                         Span::styled("min: ", Style::default()),
                         Span::styled(format!("{:.2} ms", data.min_rtt), Style::default().fg(Color::Green)),
                         Span::raw("  "),
-                    ]);
-
-                    let loss_text = Line::from(vec![
                         Span::styled("sent: ", Style::default()),
                         Span::styled(format!("{}", data.sent), Style::default().fg(Color::Green)),
                         Span::raw("  "),
@@ -149,14 +145,13 @@ pub fn draw_interface<B: Backend>(
                         Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(Color::Green)),
                     ]);
 
+
                     let target_paragraph = Paragraph::new(target_text).block(Block::default());
                     f.render_widget(target_paragraph, inner_chunks[0]);
 
-                    let paragraph = Paragraph::new(text).block(Block::default()).wrap(Wrap { trim: true });
-                    f.render_widget(paragraph, inner_chunks[1]);
+                    let base_metric_paragraph = Paragraph::new(base_metric_text).block(Block::default()).wrap(Wrap { trim: false });
+                    f.render_widget(base_metric_paragraph, inner_chunks[1]);
 
-                    let loss_paragraph = Paragraph::new(loss_text).block(Block::default());
-                    f.render_widget(loss_paragraph, inner_chunks[2]);
 
                     let data_points = data
                         .rtts
@@ -201,7 +196,7 @@ pub fn draw_interface<B: Backend>(
                         )
                         .style(Style::default());
 
-                    f.render_widget(chart, inner_chunks[3]);
+                    f.render_widget(chart, inner_chunks[2]);
 
                     let recent_records: Vec<Line> = data
                         .rtts
@@ -229,10 +224,10 @@ pub fn draw_interface<B: Backend>(
 
                     let blank_line = Line::from(vec![]);
                     let blank_paragraph = Paragraph::new(blank_line).block(Block::default());
-                    f.render_widget(blank_paragraph, inner_chunks[4]);
+                    f.render_widget(blank_paragraph, inner_chunks[3]);
 
                     let recent_paragraph = Paragraph::new(recent_records).block(Block::default().title("Recent Records:"));
-                    f.render_widget(recent_paragraph, inner_chunks[5]);
+                    f.render_widget(recent_paragraph, inner_chunks[4]);
                 };
 
                 render_content(f, horizontal_chunks[i]);

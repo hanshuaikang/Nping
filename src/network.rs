@@ -25,6 +25,11 @@ pub fn create_icmp_iter(rx: &mut TransportReceiver) -> pnet::transport::IcmpTran
     icmp_packet_iter(rx)
 }
 
+pub fn calculate_max_pings_per_address(num_addresses: usize) -> usize {
+    // the maximum number of pings sequence number is 65535
+    (65535 - 1) / num_addresses
+}
+
 /// parse target address
 pub fn resolve_target(target: &str) -> Result<IpAddr, Box<dyn std::error::Error>> {
     let addr = match IpAddr::from_str(target) {
