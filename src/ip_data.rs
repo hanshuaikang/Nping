@@ -8,7 +8,7 @@ pub struct IpData {
     pub(crate) last_attr: f64,
     pub(crate) min_rtt: f64,
     pub(crate) max_rtt: f64,
-    pub(crate) sent: usize,
+    pub(crate) timeout: usize,
     pub(crate) received: usize,
     pub(crate) pop_count: usize,
 }

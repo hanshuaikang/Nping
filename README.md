@@ -16,12 +16,11 @@
 
 
 
-
-
 ## Feature:
 - Supports concurrent Ping for multiple addresses
 - Supports visual latency display
 - Real-time display of maximum, minimum, average latency, packet loss rate, and other metrics
+- Support IpV4 and IpV6
 
 ## TODO:
 - Support dynamic layout display
@@ -30,12 +29,9 @@
 ## Usage
 
 ```bash
-# Since the pnet package is used, root privileges are required
-sudo nping www.baidu.com www.google.com www.apple.com www.sina.com -c 20
+nping www.baidu.com www.google.com www.apple.com www.sina.com -c 20 -i 2
 
-# nping --help
-
-nping with concurrent, chart, multiple addresses, real-time data update
+🏎 Nping with concurrent,chart,multiple addresses,real-time data update
 
 Usage: nping [OPTIONS] <TARGET>...
 
@@ -43,8 +39,23 @@ Arguments:
   <TARGET>...  target IP address or hostname to ping
 
 Options:
-  -c, --count <COUNT>        Number of pings to send [default: 10000]
+  -c, --count <COUNT>        Number of pings to send [default: 65535]
   -i, --interval <INTERVAL>  Interval in seconds between pings [default: 0]
-  -s, --size <SIZE>          Packet size [default: 32]
+  -6, --force_ipv6           
   -h, --help                 Print help
   -V, --version              Print version
+➜  ~ nping --help
+Nping with concurrent,chart,multiple addresses,real-time data update
+
+Usage: nping [OPTIONS] <TARGET>...
+
+Arguments:
+  <TARGET>...  target IP address or hostname to ping
+
+Options:
+  -c, --count <COUNT>        Number of pings to send [default: 65535]
+  -i, --interval <INTERVAL>  Interval in seconds between pings [default: 0]
+  -6, --force_ipv6           Force using IPv6
+  -h, --help                 Print help
+  -V, --version              Print version
+```

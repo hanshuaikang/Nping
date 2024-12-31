@@ -68,11 +68,13 @@ pub fn draw_interface<B: Backend>(
 
             for (i, data) in row_data.iter().enumerate() {
                 // compute the loss package rate for each target
-                let loss_pkg = if data.sent > 0 {
-                    100.0 - (data.received as f64 / data.sent as f64 * 100.0)
+                let loss_pkg = if data.timeout > 0 {
+                    (data.timeout as f64 / (data.received as f64 + data.timeout as f64)) * 100.0
                 } else {
                     0.0
                 };
+
+
 
                 // render the content of each target
                 let render_content = |f: &mut Frame, area: Rect| {
@@ -134,12 +136,6 @@ pub fn draw_interface<B: Backend>(
                         Span::raw("  "),
                         Span::styled("min: ", Style::default()),
                         Span::styled(format!("{:.2} ms", data.min_rtt), Style::default().fg(Color::Green)),
-                        Span::raw("  "),
-                        Span::styled("sent: ", Style::default()),
-                        Span::styled(format!("{}", data.sent), Style::default().fg(Color::Green)),
-                        Span::raw("  "),
-                        Span::styled("received: ", Style::default()),
-                        Span::styled(format!("{}", data.received), Style::default().fg(Color::Green)),
                         Span::raw("  "),
                         Span::styled("loss: ", Style::default()),
                         Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(Color::Green)),

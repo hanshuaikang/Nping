@@ -13,9 +13,9 @@ use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
 #[command(
-    version = "v0.1.0",
+    version = "v0.2.0",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
-    about = "Nping with concurrent,chart,multiple addresses,real-time data update"
+    about = "🏎 Nping with concurrent,chart,multiple addresses,real-time data update"
 )]
 struct Args {
     /// Target IP address or hostname to ping
@@ -23,15 +23,16 @@ struct Args {
     target: Vec<String>,
 
     /// Number of pings to send, when count is 0, the maximum number of pings per address is calculated
-    #[arg(short, long, default_value_t = 0, help = "Number of pings to send")]
+    #[arg(short, long, default_value_t = 65535, help = "Number of pings to send")]
     count: usize,
 
     /// Interval in seconds between pings
     #[arg(short, long, default_value_t = 0, help = "Interval in seconds between pings")]
     interval: i32,
 
-    #[arg(short, long, default_value_t = 64, help = "Packet size")]
-    size: i32,
+    #[clap(long = "force_ipv6", default_value_t = false, short = '6', help = "Force using IPv6")]
+    pub force_ipv6: bool,
+
 }
 
 
@@ -54,20 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let targets: Vec<String> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
 
-    let mut count = args.count;
-    if args.count == 0 {
-        count = network::calculate_max_pings_per_address(targets.len());
-    }
-
-    // check if the number of pings exceeds the maximum number of pings
-    if args.count > 0 && targets.len() * args.count > network::MAX_PINGS {
-        let max_count = network::calculate_max_pings_per_address(targets.len());
-        eprintln!("when you ping {} address, the maximum number of pings is {}", targets.len(), max_count);
-        std::process::exit(1);
-    }
-
-
-    let res = run_app(targets, count, args.interval, args.size, running.clone()).await;
+    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6).await;
 
     // if error print error message and exit
     if let Err(err) = res {
@@ -81,8 +69,8 @@ async fn run_app(
     targets: Vec<String>,
     count: usize,
     interval: i32,
-    size: i32,
     running: Arc<Mutex<bool>>,
+    force_ipv6: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     // init terminal
@@ -94,44 +82,39 @@ async fn run_app(
 
     // Define statistics variables
     let ip_data = Arc::new(Mutex::new(targets.iter().map(|target| IpData {
-        ip: String::from(""),
+        ip: String::new(),
         addr: target.to_string(),
         rtts: VecDeque::new(),
         last_attr: 0.0,
         min_rtt: 0.0,
         max_rtt: 0.0,
-        sent: 0,
+        timeout: 0,
         received: 0,
         pop_count: 0,
     }).collect::<Vec<_>>()));
 
     // Resolve target addresses
     let mut addrs = Vec::new();
-    for target in &targets {
-        let addr = network::resolve_target(target)?;
-        addrs.push(addr);
+    for target in targets {
+        let ip = network::get_host_ipaddr(&target, force_ipv6)?;
+        addrs.push(ip);
     }
-
-    let (tx, rx) = network::init_transport_channel()?;
-    let tx = Arc::new(Mutex::new(tx));
-    let rx = Arc::new(Mutex::new(rx));
 
     let interval = if interval == 0 { 500 } else { interval * 1000 };
     let mut tasks = Vec::new();
     for (i, addr) in addrs.iter().enumerate() {
+        let addr = addr.clone();
         let ip_data = ip_data.clone();
-        let addr = *addr;
         let terminal_guard = terminal_guard.clone();
         let running = running.clone();
-        let tx_clone = tx.clone();
-        let rx_clone = rx.clone();
+
         let task = task::spawn({
             let ip_data = ip_data.clone();
             async move {
-                send_ping(addr, i, count, interval, size, ip_data.clone(), move || {
+                send_ping(addr, i, count, interval, ip_data.clone(), move || {
                     let mut terminal_guard = terminal_guard.lock().unwrap();
                     ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &ip_data.lock().unwrap()).unwrap();
-                }, running.clone(), tx_clone, rx_clone).await.unwrap();
+                }, running.clone()).await.unwrap();
             }
         });
         tasks.push(task);
