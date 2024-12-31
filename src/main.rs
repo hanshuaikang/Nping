@@ -13,7 +13,7 @@ use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
 #[command(
-    version = "v0.2.0",
+    version = "v0.2.0-beta.1",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
     about = "🏎 Nping with concurrent,chart,multiple addresses,real-time data update"
 )]
