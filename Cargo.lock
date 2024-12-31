@@ -501,7 +501,6 @@ dependencies = [
  "ctrlc",
  "pinger",
  "ratatui",
- "regex",
  "tokio",
 ]
 
