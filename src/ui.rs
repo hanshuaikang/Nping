@@ -2,7 +2,7 @@ use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Axis, Block, Chart, Dataset, Paragraph, Wrap};
+use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Paragraph, Wrap};
 use ratatui::{symbols, Frame, Terminal};
 use crate::ip_data::IpData;
 use std::io::{self, Stdout};
@@ -27,6 +27,7 @@ pub fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Re
 pub fn draw_interface<B: Backend>(
     terminal: &mut Terminal<B>,
     ip_data: &[IpData],
+    errs: &[String],
 ) -> Result<(), Box<dyn Error>> {
     terminal.draw(|f| {
         let size = f.area();
@@ -38,14 +39,17 @@ pub fn draw_interface<B: Backend>(
             chunks.push(Constraint::Percentage(100 / rows as u16));
         }
 
+        chunks.push(Constraint::Min(7));
+
+
         let vertical_chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
             .constraints(chunks)
             .split(size);
 
-        for (row, vertical_chunk) in vertical_chunks.iter().enumerate() {
-            let start = row * 5;
+        for (row, vertical_chunk) in vertical_chunks.iter().enumerate().take(rows) {
+            let start =row * 5;
             let end = (start + 5).min(ip_data.len());
             let row_data = &ip_data[start..end];
 
@@ -73,7 +77,6 @@ pub fn draw_interface<B: Backend>(
                 } else {
                     0.0
                 };
-
 
 
                 // render the content of each target
@@ -229,6 +232,35 @@ pub fn draw_interface<B: Backend>(
                 render_content(f, horizontal_chunks[i]);
             }
         }
+
+
+        let recent_errors: Vec<Line> = errs
+            .iter()
+            .rev()
+            .take(5)
+            .map(|err| {
+                Line::from(vec![
+                    Span::styled("⚠ ", Style::default().fg(Color::Yellow)),
+                    Span::styled(err, Style::default().fg(Color::Red))
+                ])
+            })
+            .collect();
+
+        let errors_chunk = vertical_chunks.last().unwrap();
+        if errs.is_empty() {
+            let blank_line = Line::from(vec![]);
+            let blank_paragraph = Paragraph::new(blank_line).block(Block::default());
+            f.render_widget(blank_paragraph, *errors_chunk);
+        }else {
+            let errors_paragraph = Paragraph::new(recent_errors)
+                .block(Block::default()
+                    .title("🚨Recent Errors:")
+                    .borders(Borders::ALL))
+                .wrap(Wrap { trim: true });
+            f.render_widget(errors_paragraph, *errors_chunk);
+        }
+
+
     })?;
     Ok(())
 }

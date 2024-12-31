@@ -43,6 +43,7 @@ pub struct PingTask {
     index: usize,
     ip_data: Arc<Mutex<Vec<IpData>>>,
     running: Arc<Mutex<bool>>,
+    errs: Arc<Mutex<Vec<String>>>,
 }
 
 impl PingTask {
@@ -53,6 +54,7 @@ impl PingTask {
         index: usize,
         ip_data: Arc<Mutex<Vec<IpData>>>,
         running: Arc<Mutex<bool>>,
+        errs: Arc<Mutex<Vec<String>>>,
     ) -> Self {
         Self {
             addr,
@@ -61,6 +63,7 @@ impl PingTask {
             index,
             ip_data,
             running,
+            errs,
         }
     }
 
@@ -95,16 +98,26 @@ impl PingTask {
                                 self.index,
                                 self.addr.parse().unwrap(),
                                 rtt,
-                            )
+                            );
                         }
                         PingResult::Timeout(_) => {
                             update_timeout_stats(self.ip_data.clone(), self.index);
                         }
-                        _ => {}
+                        PingResult::PingExited(status, err) => {
+                            if status.code() != Option::from(0) {
+                                let err = format!("host({}) ping err, reason: ping excited, status: {} err: {}", self.addr, err, status);
+                                set_error(self.errs.clone(), err);
+                            }
+                        }
+                        PingResult::Unknown(msg) => {
+                            let err = format!("host({}) ping err, reason:unknown, err: {}", self.addr, msg);
+                            set_error(self.errs.clone(), err);
+                        }
                     }
                 }
-                Err(_) => {
-                    update_timeout_stats(self.ip_data.clone(), self.index);
+                Err(err) => {
+                    let err = format!("host({}) ping err, reason: unknown, err: {}", self.addr, err);
+                    set_error(self.errs.clone(), err);
                 }
             }
             draw_ui();
@@ -118,6 +131,7 @@ impl PingTask {
 pub async fn send_ping<F>(
     addr: String,
     i: usize,
+    errs: Arc<Mutex<Vec<String>>>,
     count: usize,
     interval: i32,
     ip_data: Arc<Mutex<Vec<IpData>>>,
@@ -136,6 +150,7 @@ where
         i,
         ip_data,
         running,
+        errs,
     );
     Ok(task.run(draw_ui).await?)
 }
@@ -168,4 +183,9 @@ fn update_timeout_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize) {
         data[i].timeout += 1;
         data[i].pop_count += 1;
     }
+}
+
+fn set_error(errs: Arc<Mutex<Vec<String>>>, err: String) {
+    let mut err_list = errs.lock().unwrap();
+    err_list.push(err)
 }

@@ -93,6 +93,8 @@ async fn run_app(
         pop_count: 0,
     }).collect::<Vec<_>>()));
 
+    let errs = Arc::new(Mutex::new(Vec::new()));
+
     // Resolve target addresses
     let mut addrs = Vec::new();
     for target in targets {
@@ -107,13 +109,15 @@ async fn run_app(
         let ip_data = ip_data.clone();
         let terminal_guard = terminal_guard.clone();
         let running = running.clone();
-
+        let errs = errs.clone();
         let task = task::spawn({
             let ip_data = ip_data.clone();
+            let errs = errs.clone();
+            let terminal_guard = terminal_guard.clone(); // Clone terminal_guard here
             async move {
-                send_ping(addr, i, count, interval, ip_data.clone(), move || {
+                send_ping(addr, i, errs.clone(), count, interval, ip_data.clone(), move || {
                     let mut terminal_guard = terminal_guard.lock().unwrap();
-                    ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &ip_data.lock().unwrap()).unwrap();
+                    ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &ip_data.lock().unwrap(), &errs.lock().unwrap()).unwrap();
                 }, running.clone()).await.unwrap();
             }
         });
