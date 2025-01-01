@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "nping"
-version = "0.2.0-beta.1"
+version = "0.2.0-beta.2"
 dependencies = [
  "anyhow",
  "clap",
