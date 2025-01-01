@@ -101,7 +101,7 @@ impl PingTask {
                             );
                         }
                         PingResult::Timeout(_) => {
-                            update_timeout_stats(self.ip_data.clone(), self.index);
+                            update_timeout_stats(self.ip_data.clone(), self.index, self.addr.parse().unwrap());
                         }
                         PingResult::PingExited(status, err) => {
                             if status.code() != Option::from(0) {
@@ -175,9 +175,10 @@ fn update_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize, addr: IpAddr, rtt: f
 }
 
 // update timeout statistics
-fn update_timeout_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize) {
+fn update_timeout_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize, addr: IpAddr) {
     let mut data = ip_data.lock().unwrap();
     data[i].rtts.push_back(0.0);
+    data[i].ip = addr.to_string();
     if data[i].rtts.len() > 10 {
         data[i].rtts.pop_front();
         data[i].timeout += 1;
