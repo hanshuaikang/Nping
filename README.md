@@ -8,12 +8,15 @@
 
 [中文文档](./README_ZH.md)
 
+**White**
 <p align="center">
     <img src="docs/imgs/img.gif" alt="Nping demo" width="100%">
 </p>
 
-
-
+**Black**
+<p align="center">
+    <img src="docs/imgs/black.gif" alt="Nping demo" width="100%">
+</p>
 
 
 ## Feature:

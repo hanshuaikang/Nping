@@ -7,9 +7,16 @@
     <img src="docs/imgs/nb.gif" alt="Nping demo" width="30%">
 </p>
 
+**白色效果**
 <p align="center">
     <img src="docs/imgs/img.gif" alt="Nping demo" width="100%">
 </p>
+
+**黑色效果**
+<p align="center">
+    <img src="docs/imgs/black.gif" alt="Nping demo" width="100%">
+</p>
+
 
 
 ## Feature:
