@@ -23,7 +23,7 @@
 
 #### MacOS Homebrew
 ```bash
-brew tap hanshuaikang/nping https://github.com/hanshuaikang/nping
+brew tap hanshuaikang/nping
 brew install nping
 
 nping --help
