@@ -18,6 +18,16 @@
 </p>
 
 
+## Installation
+
+### MacOS Homebrew
+```bash
+brew tap hanshuaikang/nping https://github.com/hanshuaikang/nping
+brew install nping
+
+nping --help
+```
+
 
 ## Feature:
 - 支持多地址并发同时 Ping

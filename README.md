@@ -19,6 +19,16 @@
 </p>
 
 
+## Installation
+
+### MacOS Homebrew
+```bash
+brew tap hanshuaikang/nping https://github.com/hanshuaikang/nping
+brew install nping
+
+nping --help
+```
+
 ## Feature:
 - Supports concurrent Ping for multiple addresses
 - Supports visual latency display
