@@ -36,9 +36,12 @@ nping --help
 - Support IpV4 and IpV6
 - Supports concurrent pinging of n ip's under one address.
 
-## TODO:
-- Support dynamic layout display
-- Implement a better-looking UI
+## Roadmap:
+
+- Show country and city of IP
+- Add host sub-command, support to show the details of ip address corresponding to the domain name.
+- Optimize UI interface, add more dynamic effects.
+- When there are multiple addresses, the display will be sorted according to the average delay at the end.
 
 ## Usage
 
