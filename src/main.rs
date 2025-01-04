@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut running = running.lock().unwrap();
             *running = false;
         })
-            .expect("cat not set Ctrl+C handler");
+            .expect("cannot set Ctrl+C handler");
     }
 
 
