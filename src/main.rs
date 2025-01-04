@@ -1,4 +1,3 @@
-// 引入自定义模块
 mod network;
 mod ui;
 mod terminal;
@@ -13,9 +12,9 @@ use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
 #[command(
-    version = "v0.2.0",
+    version = "v0.2.1",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
-    about = "🏎 Nping with concurrent,chart,multiple addresses,real-time data update"
+    about = "🏎 Nping mean NB Ping, A Ping Tool in Rust with Real-Time Data and Visualizations"
 )]
 struct Args {
     /// Target IP address or hostname to ping
@@ -33,6 +32,13 @@ struct Args {
     #[clap(long = "force_ipv6", default_value_t = false, short = '6', help = "Force using IPv6")]
     pub force_ipv6: bool,
 
+    #[arg(
+        short = 'm',
+        long,
+        default_value_t = 0,
+        help = "Specify the maximum number of target addresses, Only works on one target address"
+    )]
+    multiple: i32,
 }
 
 
@@ -55,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let targets: Vec<String> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
 
-    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6).await;
+    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple).await;
 
     // if error print error message and exit
     if let Err(err) = res {
@@ -71,6 +77,7 @@ async fn run_app(
     interval: i32,
     running: Arc<Mutex<bool>>,
     force_ipv6: bool,
+    multiple: i32,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     // init terminal
@@ -80,10 +87,23 @@ async fn run_app(
     let terminal = ui::init_terminal().unwrap();
     let terminal_guard = Arc::new(Mutex::new(terminal::TerminalGuard::new(terminal)));
 
+    let mut addrs = Vec::new();
+    // if multiple is set, get multiple IP addresses for each target
+    if targets.len() == 1 && multiple > 0 {
+        // 使用get_host_ipaddrs获取多个IP
+        addrs = network::get_multiple_host_ipaddr(&targets[0], force_ipv6, multiple as usize)?;
+    } else {
+        // get IP address for each target
+        for target in &targets {
+            let ip = network::get_host_ipaddr(target, force_ipv6)?;
+            addrs.push(ip);
+        }
+    }
+
     // Define statistics variables
-    let ip_data = Arc::new(Mutex::new(targets.iter().map(|target| IpData {
+    let ip_data = Arc::new(Mutex::new(addrs.iter().enumerate().map(|(i, _)| IpData {
         ip: String::new(),
-        addr: target.to_string(),
+        addr: if targets.len() == 1 { targets[0].clone() } else { targets[i].clone() },
         rtts: VecDeque::new(),
         last_attr: 0.0,
         min_rtt: 0.0,
@@ -94,13 +114,6 @@ async fn run_app(
     }).collect::<Vec<_>>()));
 
     let errs = Arc::new(Mutex::new(Vec::new()));
-
-    // Resolve target addresses
-    let mut addrs = Vec::new();
-    for target in targets {
-        let ip = network::get_host_ipaddr(&target, force_ipv6)?;
-        addrs.push(ip);
-    }
 
     let interval = if interval == 0 { 500 } else { interval * 1000 };
     let mut tasks = Vec::new();

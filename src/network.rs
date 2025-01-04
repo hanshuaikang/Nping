@@ -7,7 +7,8 @@ use pinger::{ping, PingOptions, PingResult};
 use crate::ip_data::IpData;
 
 // get host ip address default to ipv4
-pub(crate) fn get_host_ipaddr(host: &str, force_ipv6: bool) -> Result<String, Box<dyn Error>> {
+pub(crate) fn resolve_host_ips(host: &str, force_ipv6: bool) -> Result<Vec<IpAddr>, Box<dyn Error>> {
+    // 获取所有IP地址
     let ipaddr: Vec<_> = (host, 80)
         .to_socket_addrs()
         .with_context(|| format!("failed to resolve host: {}", host))?
@@ -18,21 +19,31 @@ pub(crate) fn get_host_ipaddr(host: &str, force_ipv6: bool) -> Result<String, Bo
         return Err(anyhow!("Could not resolve host: {}", host).into());
     }
 
-    if force_ipv6 {
-        let ipaddr = ipaddr
-            .iter()
-            .find(|ip| matches!(ip, IpAddr::V6(_)))
-            .ok_or_else(|| anyhow!("Could not resolve '{}' to ipv6", host))?;
-        return Ok(ipaddr.to_string());
-    }
+    // 根据 force_ipv6 过滤 IP 地址
+    let filtered_ips = if force_ipv6 {
+        ipaddr.into_iter()
+            .filter(|ip| matches!(ip, IpAddr::V6(_)))
+            .collect()
+    } else {
+        ipaddr.into_iter()
+            .filter(|ip| matches!(ip, IpAddr::V4(_)))
+            .collect()
+    };
 
-    let ipaddr = ipaddr
-        .iter()
-        .find(|ip| matches!(ip, IpAddr::V4(_)))
-        .ok_or_else(|| anyhow!("Could not resolve '{}' to ipv4", host))?;
+    Ok(filtered_ips)
+}
 
+pub(crate) fn get_host_ipaddr(host: &str, force_ipv6: bool) -> Result<String, Box<dyn Error>> {
+    let ips = resolve_host_ips(host, force_ipv6)?;
+    Ok(ips[0].to_string())
+}
 
-    Ok(ipaddr.to_string())
+pub(crate) fn get_multiple_host_ipaddr(host: &str, force_ipv6: bool, multiple: usize) -> Result<Vec<String>, Box<dyn Error>> {
+    let ips = resolve_host_ips(host, force_ipv6)?;
+    Ok(ips.into_iter()
+        .take(multiple)
+        .map(|ip| ip.to_string())
+        .collect())
 }
 
 
@@ -93,7 +104,7 @@ impl PingTask {
                         PingResult::Pong(duration, _size) => {
                             // calculate rtt
                             let rtt = duration.as_secs_f64() * 1000.0;
-                            let rtt_display: f64 =  format!("{:.2}", rtt).parse().unwrap();
+                            let rtt_display: f64 = format!("{:.2}", rtt).parse().unwrap();
                             update_stats(
                                 self.ip_data.clone(),
                                 self.index,

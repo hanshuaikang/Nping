@@ -34,6 +34,7 @@ nping --help
 - Supports visual latency display
 - Real-time display of maximum, minimum, average latency, packet loss rate, and other metrics
 - Support IpV4 and IpV6
+- Supports concurrent pinging of n ip's under one address.
 
 ## TODO:
 - Support dynamic layout display
