@@ -165,7 +165,7 @@ pub fn draw_interface<B: Backend>(
                         .graph_type(ratatui::widgets::GraphType::Line)
                         .data(&data_points)];
 
-                    let y_bounds = [0.0, (data.max_rtt * 1.2).max(50.0)];
+                    let y_bounds = [0.0, data.max_rtt * 1.2];
 
                     let x_range = data
                         .rtts
@@ -189,7 +189,7 @@ pub fn draw_interface<B: Backend>(
                                 .bounds(y_bounds)
                                 .labels(
                                     (0..=5)
-                                        .map(|i| Span::raw(format!("{}ms", i * (y_bounds[1] / 5.0) as i32)))
+                                        .map(|i| Span::raw(format!("{:.2}ms", i as f64 * (y_bounds[1] / 5.0) as f64)))
                                         .collect::<Vec<Span>>(),
                                 ),
                         )

@@ -92,12 +92,13 @@ impl PingTask {
                     match result {
                         PingResult::Pong(duration, _size) => {
                             // calculate rtt
-                            let rtt = ((duration.as_secs_f64() * 1000.0) as i64) as f64;
+                            let rtt = duration.as_secs_f64() * 1000.0;
+                            let rtt_display: f64 =  format!("{:.2}", rtt).parse().unwrap();
                             update_stats(
                                 self.ip_data.clone(),
                                 self.index,
                                 self.addr.parse().unwrap(),
-                                rtt,
+                                rtt_display,
                             );
                         }
                         PingResult::Timeout(_) => {
