@@ -9,7 +9,7 @@ use crate::ip_data::IpData;
 // get host ip address default to ipv4
 pub(crate) fn resolve_host_ips(host: &str, force_ipv6: bool) -> Result<Vec<IpAddr>, Box<dyn Error>> {
 
-    // 获取所有IP地址
+    // get ip address
     let ipaddr: Vec<_> = (host, 80)
         .to_socket_addrs()
         .with_context(|| format!("failed to resolve host: {}", host))?
@@ -20,7 +20,7 @@ pub(crate) fn resolve_host_ips(host: &str, force_ipv6: bool) -> Result<Vec<IpAdd
         return Err(anyhow!("Could not resolve host: {}", host).into());
     }
 
-    // 根据 force_ipv6 过滤 IP 地址
+    // filter ipv4 or ipv6
     let filtered_ips:Vec<IpAddr> = if force_ipv6 {
         ipaddr.into_iter()
             .filter(|ip| matches!(ip, IpAddr::V6(_)))

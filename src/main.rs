@@ -90,7 +90,7 @@ async fn run_app(
     let mut addrs = Vec::new();
     // if multiple is set, get multiple IP addresses for each target
     if targets.len() == 1 && multiple > 0 {
-        // 使用get_host_ipaddrs获取多个IP
+        // get multiple IP addresses for the target
         addrs = network::get_multiple_host_ipaddr(&targets[0], force_ipv6, multiple as usize)?;
     } else {
         // get IP address for each target
