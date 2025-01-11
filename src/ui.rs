@@ -141,6 +141,8 @@ pub fn draw_interface<B: Backend>(
                         Span::styled(
                             if data.last_attr == 0.0 {
                                 "< 0.01ms".to_string()
+                            } else if data.last_attr == -1.0 {
+                                "0.0ms".to_string()
                             } else {
                                 format!("{:?}ms", data.last_attr)
                             },
