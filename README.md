@@ -18,6 +18,10 @@
     <img src="docs/imgs/black.gif" alt="Nping demo" width="100%">
 </p>
 
+**Table View**
+<p align="center">
+    <img src="docs/imgs/table.gif" alt="Nping demo" width="100%">
+</p>
 
 ## Installation
 

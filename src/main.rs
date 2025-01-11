@@ -9,7 +9,6 @@ use tokio::task;
 use crate::ip_data::IpData;
 use crate::network::send_ping;
 
-
 #[derive(Parser, Debug)]
 #[command(
     version = "v0.2.2",
@@ -39,6 +38,9 @@ struct Args {
         help = "Specify the maximum number of target addresses, Only works on one target address"
     )]
     multiple: i32,
+
+    #[arg(short, long, default_value = "graph", help = "view mode graph or table")]
+    view_type: String,
 }
 
 
@@ -61,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let targets: Vec<String> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
 
-    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple).await;
+    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type).await;
 
     // if error print error message and exit
     if let Err(err) = res {
@@ -78,6 +80,7 @@ async fn run_app(
     running: Arc<Mutex<bool>>,
     force_ipv6: bool,
     multiple: i32,
+    view_type: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     // init terminal
@@ -113,6 +116,8 @@ async fn run_app(
         pop_count: 0,
     }).collect::<Vec<_>>()));
 
+    let view_type = Arc::new(view_type);
+
     let errs = Arc::new(Mutex::new(Vec::new()));
 
     let interval = if interval == 0 { 500 } else { interval * 1000 };
@@ -127,10 +132,11 @@ async fn run_app(
             let ip_data = ip_data.clone();
             let errs = errs.clone();
             let terminal_guard = terminal_guard.clone(); // Clone terminal_guard here
+            let view_type = view_type.clone();
             async move {
                 send_ping(addr, i, errs.clone(), count, interval, ip_data.clone(), move || {
                     let mut terminal_guard = terminal_guard.lock().unwrap();
-                    ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &ip_data.lock().unwrap(), &errs.lock().unwrap()).unwrap();
+                    ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &view_type, &ip_data.lock().unwrap(), &errs.lock().unwrap()).unwrap();
                 }, running.clone()).await.unwrap();
             }
         });
