@@ -194,11 +194,11 @@ fn update_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize, addr: IpAddr, rtt: f
 // update timeout statistics
 fn update_timeout_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize, addr: IpAddr) {
     let mut data = ip_data.lock().unwrap();
-    data[i].rtts.push_back(0.0);
+    data[i].rtts.push_back(-1.0);
     data[i].ip = addr.to_string();
+    data[i].timeout += 1;
     if data[i].rtts.len() > 10 {
         data[i].rtts.pop_front();
-        data[i].timeout += 1;
         data[i].pop_count += 1;
     }
 }

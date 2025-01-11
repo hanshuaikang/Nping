@@ -78,6 +78,12 @@ pub fn draw_interface<B: Backend>(
                     0.0
                 };
 
+                let loss_pkg_color = if loss_pkg > 0.0 {
+                    Color::Red
+                } else {
+                    Color::Green
+                };
+
 
                 // render the content of each target
                 let render_content = |f: &mut Frame, area: Rect| {
@@ -98,8 +104,13 @@ pub fn draw_interface<B: Backend>(
 
                     // render the content of each target
                     let avg_rtt = if !data.rtts.is_empty() {
-                        let sum: f64 = data.rtts.iter().sum();
-                        sum / data.rtts.len() as f64
+                        let valid_rtt: Vec<f64> = data.rtts.iter().cloned().filter(|&rtt| rtt >= 0.0).collect();
+                        if !valid_rtt.is_empty() {
+                            let sum: f64 = valid_rtt.iter().sum();
+                            sum / valid_rtt.len() as f64
+                        } else {
+                            0.0
+                        }
                     } else {
                         0.0
                     };
@@ -126,7 +137,14 @@ pub fn draw_interface<B: Backend>(
 
                     let base_metric_text = Line::from(vec![
                         Span::styled("last: ", Style::default()),
-                        Span::styled(format!("{:?}ms", data.last_attr), Style::default().fg(Color::Green)),
+                        Span::styled(
+                            if data.last_attr == 0.0 {
+                                "< 0.01ms".to_string()
+                            } else {
+                                format!("{:?}ms", data.last_attr)
+                            },
+                            Style::default().fg(Color::Green)
+                        ),
                         Span::raw("  "),
                         Span::styled("avg rtt : ", Style::default()),
                         Span::styled(format!("{:.2} ms", avg_rtt), Style::default().fg(Color::Green)),
@@ -141,7 +159,7 @@ pub fn draw_interface<B: Backend>(
                         Span::styled(format!("{:.2} ms", data.min_rtt), Style::default().fg(Color::Green)),
                         Span::raw("  "),
                         Span::styled("loss: ", Style::default()),
-                        Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(Color::Green)),
+                        Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(loss_pkg_color)),
                     ]);
 
 
@@ -203,12 +221,12 @@ pub fn draw_interface<B: Backend>(
                         .rev()
                         .take(5)
                         .map(|&rtt| {
-                            let display_text = if rtt == 0.0 {
+                            let display_text = if rtt == -1.0 {
                                 "timeout".to_string()
                             } else {
                                 format!("{}ms", rtt)
                             };
-                            let display_color = if rtt == 0.0 {
+                            let display_color = if rtt == -1.0  {
                                 Color::Red
                             } else {
                                 Color::Green
