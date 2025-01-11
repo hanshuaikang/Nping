@@ -78,12 +78,13 @@ pub fn draw_interface<B: Backend>(
                     0.0
                 };
 
-                let loss_pkg_color = if loss_pkg > 0.0 {
+                let loss_pkg_color = if loss_pkg > 50.0 {
                     Color::Red
+                } else if loss_pkg > 0.0 {
+                    Color::Yellow
                 } else {
                     Color::Green
                 };
-
 
                 // render the content of each target
                 let render_content = |f: &mut Frame, area: Rect| {
