@@ -1,7 +1,9 @@
+use std::collections::VecDeque;
 use std::error::Error;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tokio::sync::mpsc::{Sender};
 use anyhow::{anyhow, Context};
 use pinger::{ping, PingOptions, PingResult};
 use crate::ip_data::IpData;
@@ -21,7 +23,7 @@ pub(crate) fn resolve_host_ips(host: &str, force_ipv6: bool) -> Result<Vec<IpAdd
     }
 
     // filter ipv4 or ipv6
-    let filtered_ips:Vec<IpAddr> = if force_ipv6 {
+    let filtered_ips: Vec<IpAddr> = if force_ipv6 {
         ipaddr.into_iter()
             .filter(|ip| matches!(ip, IpAddr::V6(_)))
             .collect()
@@ -54,10 +56,9 @@ pub(crate) fn get_multiple_host_ipaddr(host: &str, force_ipv6: bool, multiple: u
 
 pub struct PingTask {
     addr: String,
+    ip: String,
     count: usize,
     interval: u64,
-    index: usize,
-    ip_data: Arc<Mutex<Vec<IpData>>>,
     running: Arc<Mutex<bool>>,
     errs: Arc<Mutex<Vec<String>>>,
 }
@@ -65,32 +66,39 @@ pub struct PingTask {
 impl PingTask {
     pub fn new(
         addr: String,
+        ip: String,
         count: usize,
         interval: u64,
-        index: usize,
-        ip_data: Arc<Mutex<Vec<IpData>>>,
         running: Arc<Mutex<bool>>,
         errs: Arc<Mutex<Vec<String>>>,
     ) -> Self {
         Self {
             addr,
+            ip,
             count,
             interval,
-            index,
-            ip_data,
             running,
             errs,
         }
     }
 
-    pub async fn run<F>(&self, mut draw_ui: F) -> Result<(), Box<dyn Error>>
-    where
-        F: FnMut() + Send + 'static,
+    pub async fn run(&self, ping_update_tx: Arc<Sender<IpData>>) -> Result<(), Box<dyn Error>>
     {
+        let mut ip_data = IpData {
+            addr: self.addr.clone(),
+            ip: self.ip.clone(),
+            rtts: VecDeque::new(),
+            last_attr: 0.0,
+            min_rtt: 0.0,
+            max_rtt: 0.0,
+            timeout: 0,
+            received: 0,
+            pop_count: 0,
+        };
         // interval defined 0.5s/every ping
         let interval = Duration::from_millis(self.interval);
         let options = PingOptions::new(
-            self.addr.clone(),
+            self.ip.clone(),
             interval,
             None,
         );
@@ -111,33 +119,35 @@ impl PingTask {
                             let rtt = duration.as_secs_f64() * 1000.0;
                             let rtt_display: f64 = format!("{:.2}", rtt).parse().unwrap();
                             update_stats(
-                                self.ip_data.clone(),
-                                self.index,
-                                self.addr.parse().unwrap(),
+                                &mut ip_data,
+                                self.ip.parse().unwrap(),
                                 rtt_display,
                             );
                         }
                         PingResult::Timeout(_) => {
-                            update_timeout_stats(self.ip_data.clone(), self.index, self.addr.parse().unwrap());
+                            update_timeout_stats(&mut ip_data, self.ip.parse().unwrap());
                         }
                         PingResult::PingExited(status, err) => {
                             if status.code() != Option::from(0) {
-                                let err = format!("host({}) ping err, reason: ping excited, status: {} err: {}", self.addr, err, status);
+                                let err = format!("host({}) ping err, reason: ping excited, status: {} err: {}", self.ip, err, status);
                                 set_error(self.errs.clone(), err);
                             }
                         }
                         PingResult::Unknown(msg) => {
-                            let err = format!("host({}) ping err, reason:unknown, err: {}", self.addr, msg);
+                            let err = format!("host({}) ping err, reason:unknown, err: {}", self.ip, msg);
                             set_error(self.errs.clone(), err);
                         }
                     }
                 }
                 Err(err) => {
-                    let err = format!("host({}) ping err, reason: unknown, err: {}", self.addr, err);
+                    let err = format!("host({}) ping err, reason: unknown, err: {}", self.ip, err);
                     set_error(self.errs.clone(), err);
                 }
             }
-            draw_ui();
+
+
+            // send ping data to update
+            let _ = ping_update_tx.send(ip_data.clone()).await;
         }
 
         Ok(())
@@ -145,62 +155,55 @@ impl PingTask {
 }
 
 // send ping to the target address
-pub async fn send_ping<F>(
+pub async fn send_ping(
     addr: String,
-    i: usize,
+    ip: String,
     errs: Arc<Mutex<Vec<String>>>,
     count: usize,
     interval: i32,
-    ip_data: Arc<Mutex<Vec<IpData>>>,
-    mut draw_ui: F,
     running: Arc<Mutex<bool>>,
+    ping_update_tx: Arc<Sender<IpData>>,
 ) -> Result<(), Box<dyn Error>>
-where
-    F: FnMut() + Send + 'static,
 {
     // draw ui first
-    draw_ui();
     let task = PingTask::new(
         addr.to_string(),
+        ip,
         count,
         interval as u64,
-        i,
-        ip_data,
         running,
         errs,
     );
-    Ok(task.run(draw_ui).await?)
+    Ok(task.run(ping_update_tx).await?)
 }
 
 // update statistics
-fn update_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize, addr: IpAddr, rtt: f64) {
-    let mut data = ip_data.lock().unwrap();
-    data[i].ip = addr.to_string();
-    data[i].received += 1;
-    data[i].last_attr = rtt;
-    data[i].rtts.push_back(rtt);
-    if data[i].min_rtt == 0.0 || rtt < data[i].min_rtt {
-        data[i].min_rtt = rtt;
+fn update_stats(ip_data: &mut IpData, ip: IpAddr, rtt: f64) {
+    ip_data.ip = ip.to_string();
+    ip_data.received += 1;
+    ip_data.last_attr = rtt;
+    ip_data.rtts.push_back(rtt);
+    if ip_data.min_rtt == 0.0 || rtt < ip_data.min_rtt {
+        ip_data.min_rtt = rtt;
     }
-    if rtt > data[i].max_rtt {
-        data[i].max_rtt = rtt;
+    if rtt > ip_data.max_rtt {
+        ip_data.max_rtt = rtt;
     }
-    if data[i].rtts.len() > 10 {
-        data[i].rtts.pop_front();
-        data[i].pop_count += 1;
+    if ip_data.rtts.len() > 10 {
+        ip_data.rtts.pop_front();
+        ip_data.pop_count += 1;
     }
 }
 
 // update timeout statistics
-fn update_timeout_stats(ip_data: Arc<Mutex<Vec<IpData>>>, i: usize, addr: IpAddr) {
-    let mut data = ip_data.lock().unwrap();
-    data[i].rtts.push_back(-1.0);
-    data[i].last_attr = -1.0;
-    data[i].ip = addr.to_string();
-    data[i].timeout += 1;
-    if data[i].rtts.len() > 10 {
-        data[i].rtts.pop_front();
-        data[i].pop_count += 1;
+fn update_timeout_stats(ip_data: &mut IpData, ip: IpAddr) {
+    ip_data.rtts.push_back(-1.0);
+    ip_data.last_attr = -1.0;
+    ip_data.ip = ip.to_string();
+    ip_data.timeout += 1;
+    if ip_data.rtts.len() > 10 {
+        ip_data.rtts.pop_front();
+        ip_data.pop_count += 1;
     }
 }
 

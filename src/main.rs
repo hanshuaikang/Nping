@@ -8,6 +8,8 @@ use std::sync::{Arc, Mutex};
 use tokio::task;
 use crate::ip_data::IpData;
 use crate::network::send_ping;
+use tokio::sync::mpsc::{channel, Sender, Receiver};
+
 
 #[derive(Parser, Debug)]
 #[command(
@@ -90,21 +92,28 @@ async fn run_app(
     let terminal = ui::init_terminal().unwrap();
     let terminal_guard = Arc::new(Mutex::new(terminal::TerminalGuard::new(terminal)));
 
-    let mut addrs = Vec::new();
+
+    // ip channel
+    let (ping_update_tx, mut ping_update_rx): (Sender<IpData>, Receiver<IpData>) = channel(1);
+
+    let ping_update_tx = Arc::new(ping_update_tx);
+
+
+    let mut ips = Vec::new();
     // if multiple is set, get multiple IP addresses for each target
     if targets.len() == 1 && multiple > 0 {
         // get multiple IP addresses for the target
-        addrs = network::get_multiple_host_ipaddr(&targets[0], force_ipv6, multiple as usize)?;
+        ips = network::get_multiple_host_ipaddr(&targets[0], force_ipv6, multiple as usize)?;
     } else {
         // get IP address for each target
         for target in &targets {
             let ip = network::get_host_ipaddr(target, force_ipv6)?;
-            addrs.push(ip);
+            ips.push(ip);
         }
     }
 
     // Define statistics variables
-    let ip_data = Arc::new(Mutex::new(addrs.iter().enumerate().map(|(i, _)| IpData {
+    let ip_data = Arc::new(Mutex::new(ips.iter().enumerate().map(|(i, _)| IpData {
         ip: String::new(),
         addr: if targets.len() == 1 { targets[0].clone() } else { targets[i].clone() },
         rtts: VecDeque::new(),
@@ -122,25 +131,58 @@ async fn run_app(
 
     let interval = if interval == 0 { 500 } else { interval * 1000 };
     let mut tasks = Vec::new();
-    for (i, addr) in addrs.iter().enumerate() {
-        let addr = addr.clone();
+
+    {
         let ip_data = ip_data.clone();
+        let errs = errs.clone();
         let terminal_guard = terminal_guard.clone();
+        let view_type = view_type.clone();
+
+        {
+            let mut guard = terminal_guard.lock().unwrap();
+            let ip_data = ip_data.lock().unwrap();
+            // first draw ui
+            ui::draw_interface(
+                &mut guard.terminal.as_mut().unwrap(),
+                &view_type,
+                &ip_data,
+                &mut errs.lock().unwrap(),
+            ).ok();
+        }
+
+        tokio::spawn(async move {
+            while let Some(updated_data) = ping_update_rx.recv().await {
+                let mut ip_data = ip_data.lock().unwrap();
+                if let Some(pos) = ip_data.iter().position(|d| d.addr == updated_data.addr && d.ip == updated_data.ip) {
+                    ip_data[pos] = updated_data;
+                }
+                let mut guard = terminal_guard.lock().unwrap();
+                ui::draw_interface(
+                    &mut guard.terminal.as_mut().unwrap(),
+                    &view_type,
+                    &ip_data,
+                    &mut errs.lock().unwrap(),
+                ).ok();
+            }
+        });
+    }
+    for (i, ip) in ips.iter().enumerate() {
+        let ip = ip.clone();
         let running = running.clone();
         let errs = errs.clone();
         let task = task::spawn({
-            let ip_data = ip_data.clone();
             let errs = errs.clone();
-            let terminal_guard = terminal_guard.clone(); // Clone terminal_guard here
-            let view_type = view_type.clone();
+            let ping_update_tx = ping_update_tx.clone();
+            let ip_data = ip_data.clone();
+            let mut data = ip_data.lock().unwrap();
+            // update the ip
+            data[i].ip = ip.clone();
+            let addr = data[i].addr.clone();
             async move {
-                send_ping(addr, i, errs.clone(), count, interval, ip_data.clone(), move || {
-                    let mut terminal_guard = terminal_guard.lock().unwrap();
-                    ui::draw_interface(&mut terminal_guard.terminal.as_mut().unwrap(), &view_type, &ip_data.lock().unwrap(), &errs.lock().unwrap()).unwrap();
-                }, running.clone()).await.unwrap();
+                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), ping_update_tx).await.unwrap();
             }
         });
-        tasks.push(task);
+        tasks.push(task)
     }
 
     for task in tasks {

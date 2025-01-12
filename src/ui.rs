@@ -10,6 +10,7 @@ use std::io::{self, Stdout};
 use std::error::Error;
 use ratatui::prelude::Modifier;
 
+
 /// init terminal
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Error>> {
     let backend = CrosstermBackend::new(io::stdout());
