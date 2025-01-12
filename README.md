@@ -66,6 +66,7 @@ Options:
   -i, --interval <INTERVAL>  Interval in seconds between pings [default: 0]
   -6, --force_ipv6           Force using IPv6
   -m, --multiple <MULTIPLE>  Specify the maximum number of target addresses, Only works on one target address [default: 0]
+  -v, --view-type <VIEW_TYPE>  view mode graph or table [default: graph]
   -h, --help                 Print help
   -V, --version              Print version
 ```
