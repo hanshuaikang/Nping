@@ -2,9 +2,10 @@ use std::collections::VecDeque;
 use std::error::Error;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::SyncSender;
 use std::time::Duration;
-use tokio::sync::mpsc::{Sender};
 use anyhow::{anyhow, Context};
+
 use pinger::{ping, PingOptions, PingResult};
 use crate::ip_data::IpData;
 
@@ -82,7 +83,7 @@ impl PingTask {
         }
     }
 
-    pub async fn run(&self, ping_update_tx: Arc<Sender<IpData>>) -> Result<(), Box<dyn Error>>
+    pub async fn run(&self, ping_update_tx: Arc<SyncSender<IpData>>) -> Result<(), Box<dyn Error>>
     {
         let mut ip_data = IpData {
             addr: self.addr.clone(),
@@ -147,7 +148,7 @@ impl PingTask {
 
 
             // send ping data to update
-            let _ = ping_update_tx.send(ip_data.clone()).await;
+            let _ = ping_update_tx.send(ip_data.clone());
         }
 
         Ok(())
@@ -162,7 +163,7 @@ pub async fn send_ping(
     count: usize,
     interval: i32,
     running: Arc<Mutex<bool>>,
-    ping_update_tx: Arc<Sender<IpData>>,
+    ping_update_tx: Arc<SyncSender<IpData>>,
 ) -> Result<(), Box<dyn Error>>
 {
     // draw ui first

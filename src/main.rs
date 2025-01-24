@@ -7,9 +7,9 @@ use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use tokio::task;
 use crate::ip_data::IpData;
+use std::sync::mpsc;
+use std::thread;
 use crate::network::send_ping;
-use tokio::sync::mpsc::{channel, Sender, Receiver};
-
 
 #[derive(Parser, Debug)]
 #[command(
@@ -94,7 +94,7 @@ async fn run_app(
 
 
     // ip channel
-    let (ping_update_tx, mut ping_update_rx): (Sender<IpData>, Receiver<IpData>) = channel(1);
+    let (ping_update_tx, ping_update_rx) = mpsc::sync_channel::<IpData>(1);
 
     let ping_update_tx = Arc::new(ping_update_tx);
 
@@ -150,8 +150,8 @@ async fn run_app(
             ).ok();
         }
 
-        tokio::spawn(async move {
-            while let Some(updated_data) = ping_update_rx.recv().await {
+        thread::spawn(move || {
+            while let Ok(updated_data) = ping_update_rx.recv() {
                 let mut ip_data = ip_data.lock().unwrap();
                 if let Some(pos) = ip_data.iter().position(|d| d.addr == updated_data.addr && d.ip == updated_data.ip) {
                     ip_data[pos] = updated_data;
