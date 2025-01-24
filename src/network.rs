@@ -148,7 +148,7 @@ impl PingTask {
 
 
             // send ping data to update
-            let _ = ping_update_tx.send(ip_data.clone());
+            ping_update_tx.send(ip_data.clone())?;
         }
 
         Ok(())
