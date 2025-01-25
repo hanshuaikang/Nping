@@ -15,7 +15,7 @@ use crate::network::send_ping;
 #[command(
     version = "v0.2.4",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
-    about = "🏎 Nping mean NB Ping, A Ping Tool in Rust with Real-Time Data and Visualizations"
+    about = "🏎  Nping mean NB Ping, A Ping Tool in Rust with Real-Time Data and Visualizations"
 )]
 struct Args {
     /// Target IP address or hostname to ping

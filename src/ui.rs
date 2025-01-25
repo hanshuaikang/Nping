@@ -113,12 +113,12 @@ pub fn draw_graph_view<B: Backend>(
 
                 // render the target text
                 let target_text = Line::from(vec![
-                    Span::styled("target: ", Style::default()),
+                    Span::styled("Target: ", Style::default()),
                     Span::styled(&data.addr, Style::default().fg(Color::Green)),
                 ]);
 
                 let base_metric_text = Line::from(vec![
-                    Span::styled("last: ", Style::default()),
+                    Span::styled("Last: ", Style::default()),
                     Span::styled(
                         if data.last_attr == 0.0 {
                             "< 0.01ms".to_string()
@@ -130,19 +130,19 @@ pub fn draw_graph_view<B: Backend>(
                         Style::default().fg(Color::Green)
                     ),
                     Span::raw("  "),
-                    Span::styled("avg rtt : ", Style::default()),
+                    Span::styled("Avg Rtt : ", Style::default()),
                     Span::styled(format!("{:.2} ms", avg_rtt), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("jitter: ", Style::default()),
+                    Span::styled("Jitter: ", Style::default()),
                     Span::styled(format!("{:.2} ms", jitter), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("max: ", Style::default()),
+                    Span::styled("Max: ", Style::default()),
                     Span::styled(format!("{:.2} ms", data.max_rtt), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("min: ", Style::default()),
+                    Span::styled("Min: ", Style::default()),
                     Span::styled(format!("{:.2} ms", data.min_rtt), Style::default().fg(Color::Green)),
                     Span::raw("  "),
-                    Span::styled("loss: ", Style::default()),
+                    Span::styled("Loss: ", Style::default()),
                     Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(loss_pkg_color)),
                 ]);
 
@@ -299,15 +299,15 @@ pub fn draw_table_view<B: Backend>(
 
     // create header
     let header = Row::new(vec![
-        "rank",
-        "target",
-        "iP",
-        "last rtt",
-        "avg rtt",
-        "max",
-        "min",
-        "jitter",
-        "loss",
+        "Rank",
+        "Target",
+        "Ip",
+        "Last Rtt",
+        "Avg Rtt",
+        "Max",
+        "Min",
+        "Jitter",
+        "Loss",
     ])
         .style(header_style)
         .height(1);
@@ -372,7 +372,7 @@ pub fn draw_table_view<B: Backend>(
     )
         .header(header)
         .block(Block::default()
-            .title("🏎 Nping Table (Sort by: Loss Rate ↑ then Latency ↑)"))
+            .title("🏎  Nping Table (Sort by: Loss Rate ↑ then Latency ↑)"))
         .row_highlight_style(selected_style)
         .highlight_symbol(">> ");
 
