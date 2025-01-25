@@ -94,7 +94,7 @@ async fn run_app(
 
 
     // ip channel
-    let (ping_update_tx, ping_update_rx) = mpsc::sync_channel::<IpData>(1);
+    let (ping_update_tx, ping_update_rx) = mpsc::sync_channel::<IpData>(0);
 
     let ping_update_tx = Arc::new(ping_update_tx);
 
