@@ -63,7 +63,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
-    let targets: Vec<String> = args.target.into_iter().collect::<HashSet<_>>().into_iter().collect();
+    // after de-duplication, the original order is still preserved
+    let mut seen = HashSet::new();
+    let targets: Vec<String> = args.target.into_iter()
+        .filter(|item| seen.insert(item.clone()))
+        .collect();
 
     let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type).await;
 
