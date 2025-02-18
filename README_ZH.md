@@ -7,7 +7,7 @@
     <img src="docs/imgs/nb.gif" alt="Nping demo" width="30%">
 </p>
 
-<p style="text-align: center;">
+<p align="center">
     <a href="https://hellogithub.com/repository/21f5600774554866a3d686308df2dbf0" target="_blank">
         <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=21f5600774554866a3d686308df2dbf0&claim_uid=uT2Sc8Xli4PUA76&theme=neutral" alt="Featured｜HelloGitHub" style="width: 200px; height: 50px;" width="250" height="54" />
     </a>
