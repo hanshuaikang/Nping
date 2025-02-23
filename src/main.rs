@@ -1,7 +1,9 @@
 mod network;
-mod ui;
+mod draw;
 mod terminal;
 mod ip_data;
+mod ui;
+
 use clap::Parser;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -90,10 +92,10 @@ async fn run_app(
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     // init terminal
-    ui::init_terminal()?;
+    draw::init_terminal()?;
 
     // Create terminal instance
-    let terminal = ui::init_terminal().unwrap();
+    let terminal = draw::init_terminal().unwrap();
     let terminal_guard = Arc::new(Mutex::new(terminal::TerminalGuard::new(terminal)));
 
 
@@ -102,6 +104,12 @@ async fn run_app(
 
     let ping_update_tx = Arc::new(ping_update_tx);
 
+    let point_count = match view_type.as_str() {
+        "graph" => 20,
+        "table" => 20,
+        "point" => 50,
+        _ => 20,
+    };
 
     let mut ips = Vec::new();
     // if multiple is set, get multiple IP addresses for each target
@@ -146,7 +154,7 @@ async fn run_app(
             let mut guard = terminal_guard.lock().unwrap();
             let ip_data = ip_data.lock().unwrap();
             // first draw ui
-            ui::draw_interface(
+            draw::draw_interface(
                 &mut guard.terminal.as_mut().unwrap(),
                 &view_type,
                 &ip_data,
@@ -161,7 +169,7 @@ async fn run_app(
                     ip_data[pos] = updated_data;
                 }
                 let mut guard = terminal_guard.lock().unwrap();
-                ui::draw_interface(
+                draw::draw_interface(
                     &mut guard.terminal.as_mut().unwrap(),
                     &view_type,
                     &ip_data,
@@ -183,7 +191,7 @@ async fn run_app(
             data[i].ip = ip.clone();
             let addr = data[i].addr.clone();
             async move {
-                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), ping_update_tx).await.unwrap();
+                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), point_count, ping_update_tx).await.unwrap();
             }
         });
         tasks.push(task)
