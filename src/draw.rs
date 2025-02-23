@@ -3,7 +3,7 @@ use ratatui::Terminal;
 use crate::ip_data::IpData;
 use std::io::{self, Stdout};
 use std::error::Error;
-use crate::ui::{draw_graph_view, draw_point_view, draw_table_view};
+use crate::ui::{draw_graph_view, draw_table_view};
 
 /// init terminal
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Error>> {
@@ -36,10 +36,6 @@ pub fn draw_interface<B: Backend>(
                 let size = f.area();
                 draw_table_view::<B>(f, ip_data, errs, size);
             }
-            "point" => {
-                draw_point_view::<B>(f, ip_data, errs);
-            }
-
             _ => {
                 draw_graph_view::<B>(f, ip_data, errs);
             }

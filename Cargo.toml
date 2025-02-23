@@ -1,11 +1,10 @@
 [package]
 name = "nping"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }
-ctrlc = "3.2"
 ratatui = "0.29.0"
 tokio = { version = "1.42.0", features = ["full"] }
 pinger="2.0.0"
