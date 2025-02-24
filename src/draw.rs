@@ -11,7 +11,7 @@ use crate::ui::{draw_graph_view, draw_table_view};
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    // 进入备用屏幕
+    // enter alternate screen
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -20,11 +20,11 @@ pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Err
     Ok(terminal)
 }
 
-/// 恢复终端，并离开备用屏幕
+// restore terminal and show cursor
 pub fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>> {
     disable_raw_mode()?;
     terminal.show_cursor()?;
-    // 离开备用屏幕
+    // leave alternate screen
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     Ok(())
 }

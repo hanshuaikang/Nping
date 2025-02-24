@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse command line arguments
     let args = Args::parse();
 
-    // set Ctrl+C handler
+    // set Ctrl+C and q and esc to exit
     let running = Arc::new(Mutex::new(true));
     {
         let running = running.clone();
