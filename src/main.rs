@@ -14,12 +14,11 @@ use std::thread;
 use std::time::Duration;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::{Event, KeyCode, KeyModifiers};
-use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
 #[command(
-    version = "v0.2.5",
+    version = "v0.2.6",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
     about = "🏎  Nping mean NB Ping, A Ping Tool in Rust with Real-Time Data and Visualizations"
 )]
@@ -57,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse command line arguments
     let args = Args::parse();
 
-    // set Ctrl+C and q and esc to exit
+    // set Ctrl+C handler
     let running = Arc::new(Mutex::new(true));
     {
         let running = running.clone();
@@ -102,7 +101,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("{}", err);
         std::process::exit(1);
     }
-
     Ok(())
 }
 
@@ -119,8 +117,6 @@ async fn run_app(
     // init terminal
     draw::init_terminal()?;
 
-    enable_raw_mode()?;
-
     // Create terminal instance
     let terminal = draw::init_terminal().unwrap();
     let terminal_guard = Arc::new(Mutex::new(terminal::TerminalGuard::new(terminal)));
@@ -131,7 +127,6 @@ async fn run_app(
 
     let ping_update_tx = Arc::new(ping_update_tx);
 
-    let point_count = 20;
 
     let mut ips = Vec::new();
     // if multiple is set, get multiple IP addresses for each target
@@ -213,7 +208,7 @@ async fn run_app(
             data[i].ip = ip.clone();
             let addr = data[i].addr.clone();
             async move {
-                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), point_count, ping_update_tx).await.unwrap();
+                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), ping_update_tx).await.unwrap();
             }
         });
         tasks.push(task)
@@ -223,7 +218,8 @@ async fn run_app(
         task.await?;
     }
 
-    disable_raw_mode()?;
+    // restore terminal
+    draw::restore_terminal(&mut terminal_guard.lock().unwrap().terminal.as_mut().unwrap())?;
 
     Ok(())
 }

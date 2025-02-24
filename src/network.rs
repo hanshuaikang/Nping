@@ -61,7 +61,6 @@ pub struct PingTask {
     count: usize,
     interval: u64,
     running: Arc<Mutex<bool>>,
-    point_count: usize,
     errs: Arc<Mutex<Vec<String>>>,
 }
 
@@ -72,7 +71,6 @@ impl PingTask {
         count: usize,
         interval: u64,
         running: Arc<Mutex<bool>>,
-        point_count: usize,
         errs: Arc<Mutex<Vec<String>>>,
     ) -> Self {
         Self {
@@ -81,7 +79,6 @@ impl PingTask {
             count,
             interval,
             running,
-            point_count,
             errs,
         }
     }
@@ -126,11 +123,10 @@ impl PingTask {
                                 &mut ip_data,
                                 self.ip.parse().unwrap(),
                                 rtt_display,
-                                self.point_count,
                             );
                         }
                         PingResult::Timeout(_) => {
-                            update_timeout_stats(&mut ip_data, self.ip.parse().unwrap(), self.point_count);
+                            update_timeout_stats(&mut ip_data, self.ip.parse().unwrap());
                         }
                         PingResult::PingExited(status, err) => {
                             if status.code() != Option::from(0) {
@@ -167,7 +163,6 @@ pub async fn send_ping(
     count: usize,
     interval: i32,
     running: Arc<Mutex<bool>>,
-    point_count: usize,
     ping_update_tx: Arc<SyncSender<IpData>>,
 ) -> Result<(), Box<dyn Error>>
 {
@@ -178,14 +173,13 @@ pub async fn send_ping(
         count,
         interval as u64,
         running,
-        point_count,
         errs,
     );
     Ok(task.run(ping_update_tx).await?)
 }
 
 // update statistics
-fn update_stats(ip_data: &mut IpData, ip: IpAddr, rtt: f64, point_count: usize) {
+fn update_stats(ip_data: &mut IpData, ip: IpAddr, rtt: f64) {
     ip_data.ip = ip.to_string();
     ip_data.received += 1;
     ip_data.last_attr = rtt;
@@ -196,19 +190,19 @@ fn update_stats(ip_data: &mut IpData, ip: IpAddr, rtt: f64, point_count: usize) 
     if rtt > ip_data.max_rtt {
         ip_data.max_rtt = rtt;
     }
-    if ip_data.rtts.len() > point_count {
+    if ip_data.rtts.len() > 10 {
         ip_data.rtts.pop_front();
         ip_data.pop_count += 1;
     }
 }
 
 // update timeout statistics
-fn update_timeout_stats(ip_data: &mut IpData, ip: IpAddr, point_count: usize) {
+fn update_timeout_stats(ip_data: &mut IpData, ip: IpAddr) {
     ip_data.rtts.push_back(-1.0);
     ip_data.last_attr = -1.0;
     ip_data.ip = ip.to_string();
     ip_data.timeout += 1;
-    if ip_data.rtts.len() > point_count {
+    if ip_data.rtts.len() > 10 {
         ip_data.rtts.pop_front();
         ip_data.pop_count += 1;
     }

@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, Paragraph, Row, Table};
 use crate::ip_data::IpData;
 use crate::ui::utils::{calculate_avg_rtt, calculate_jitter, calculate_loss_pkg, draw_errors_section};
 
+
 pub fn draw_table_view<B: Backend>(
     f: &mut Frame,
     ip_data: &[IpData],
