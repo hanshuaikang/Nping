@@ -1,7 +1,7 @@
 
 <h1 align="center"> 🏎 Nping </h1>
 <p align="center">
-    <em>Nping 是一个基于 Rust 开发使用 ICMP 协议的 Ping 工具, 支持多地址并发 Ping, 可视化图表展示, 数据实时更新等特性 </em>
+    <em>Nping 是一个基于 Rust 开发的终端可视化 Ping 工具, 支持多地址并发 Ping, 可视化图表展示, 数据实时更新等特性 </em>
 </p>
 <p align="center">
     <img src="docs/imgs/nb.gif" alt="Nping demo" width="30%">
@@ -15,7 +15,7 @@
 
 **白色效果**
 <p align="center">
-    <img src="docs/imgs/img.gif" alt="Nping demo" width="100%">
+    <img src="docs/imgs/white.gif" alt="Nping demo" width="100%">
 </p>
 
 **黑色效果**

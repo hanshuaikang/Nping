@@ -17,7 +17,7 @@
 
 **White**
 <p align="center">
-    <img src="docs/imgs/img.gif" alt="Nping demo" width="100%">
+    <img src="docs/imgs/white.gif" alt="Nping demo" width="100%">
 </p>
 
 **Black**
