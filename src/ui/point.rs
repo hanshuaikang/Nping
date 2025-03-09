@@ -31,12 +31,28 @@ pub fn draw_point_view<B: Backend>(
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(1),
             Constraint::Length(total_height as u16),
-            Constraint::Min(6), // For errors section
+            Constraint::Min(6),        // For errors section
         ].as_ref())
         .split(area);
 
-    let ip_area = chunks[0];
+    // draw legend
+    let legend = Line::from(vec![
+        Span::styled(" 🏎  Nping Point View ", Style::default().fg(Color::Cyan)),
+        Span::raw("("),
+        Span::styled("•", Style::default().fg(Color::Green)),
+        Span::raw(" Healthy, "),
+        Span::styled("↑", Style::default().fg(Color::Yellow)),
+        Span::raw(" High Latency (over 80% of max), "),
+        Span::styled("✗", Style::default().fg(Color::Red)),
+        Span::raw(" Timeout)"),
+    ]);
+
+    let legend_paragraph = Paragraph::new(legend);
+    f.render_widget(legend_paragraph, chunks[0]);
+
+    let ip_area = chunks[1];
 
     let ip_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -54,8 +70,10 @@ pub fn draw_point_view<B: Backend>(
 
         // Create the info line (row 1) with all metrics from table view
         let info_line = Line::from(vec![
-            Span::styled(format!("Target: {} ", ip.addr), Style::default()),
-            Span::styled(format!("Ip: {} ", ip.ip), Style::default()),
+            Span::raw("Target: "),
+            Span::styled(format!("{} ", ip.addr), Style::default().fg(Color::Green)),
+            Span::raw("Ip: "),
+            Span::styled(format!("{} ", ip.ip), Style::default().fg(Color::Green)),
             Span::raw("Last: "),
             Span::styled(
                 if ip.last_attr == 0.0 {
@@ -78,16 +96,14 @@ pub fn draw_point_view<B: Backend>(
             Span::raw(" Loss: "),
             Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(loss_pkg_color)), ]);
 
-        // Generate point markers for latency representation (row 2)
-        // Only green dots for successful pings and red X for packet loss
         let mut points_spans = Vec::new();
         for &rtt in &ip.rtts {
             if rtt < 0.0 {
                 // Timeout/packet loss - red X
                 points_spans.push(Span::styled("✗", Style::default().fg(Color::Red)));
             } else if rtt > ip.max_rtt * 0.8 {
-                // High latency (over 80% of max) - yellow dot
-                points_spans.push(Span::styled("•", Style::default().fg(Color::Yellow)));
+                // High latency () - yellow dot
+                points_spans.push(Span::styled("↑", Style::default().fg(Color::Yellow)));
             } else {
                 // Normal latency - green dot
                 points_spans.push(Span::styled("•", Style::default().fg(Color::Green)));
@@ -100,7 +116,7 @@ pub fn draw_point_view<B: Backend>(
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(1),  // Info line
-                Constraint::Min(4),     // Points area with enough space for multiple lines
+                Constraint::Min(4), // Points area with enough space for multiple lines
             ].as_ref())
             .split(ip_chunks[i]);
 

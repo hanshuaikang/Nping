@@ -13,19 +13,20 @@
     </a>
 </p>
 
-**白色效果**
-<p align="center">
-    <img src="docs/imgs/white.gif" alt="Nping demo" width="100%">
-</p>
-
-**黑色效果**
+**图表视图**
 <p align="center">
     <img src="docs/imgs/black.gif" alt="Nping demo" width="100%">
 </p>
 
-**表格模式w**
+
+**表格视图**
 <p align="center">
     <img src="docs/imgs/table.gif" alt="Nping demo" width="100%">
+</p>
+
+**点视图**
+<p align="center">
+    <img src="docs/imgs/point.gif" alt="Nping demo" width="100%">
 </p>
 
 ## Installation
@@ -71,7 +72,7 @@ Options:
   -i, --interval <INTERVAL>  Interval in seconds between pings [default: 0]
   -6, --force_ipv6           Force using IPv6
   -m, --multiple <MULTIPLE>  Specify the maximum number of target addresses, Only works on one target address [default: 0]
-  -v, --view-type <VIEW_TYPE>  view mode graph or table [default: graph]
+  -v, --view-type <VIEW_TYPE>  view mode graph/table/point [default: graph]
   -h, --help                 Print help
   -V, --version              Print version
 ```
