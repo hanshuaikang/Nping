@@ -11,9 +11,20 @@ use crate::ip_data::IpData;
 
 // get host ip address default to ipv4
 pub(crate) fn resolve_host_ips(host: &str, force_ipv6: bool) -> Result<Vec<IpAddr>, Box<dyn Error>> {
+    // check for host/ipv4 port number (example.com:443) - ignore ipv6 via count
+    let (hostname, port) = if host.contains(':') && host.matches(':').count() == 1 {
+        let parts: Vec<&str> = host.split(':').collect();
+        if parts.len() == 2 && parts[1].parse::<u16>().is_ok() {
+            (parts[0], parts[1].parse::<u16>().unwrap())
+        } else {
+            (host, 80)
+        }
+    } else {
+        (host, 80)
+    };
 
     // get ip address
-    let ipaddr: Vec<_> = (host, 80)
+    let ipaddr: Vec<_> = (hostname, port)
         .to_socket_addrs()
         .with_context(|| format!("failed to resolve host: {}", host))?
         .map(|s| s.ip())
