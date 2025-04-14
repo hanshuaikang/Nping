@@ -2,6 +2,9 @@
 name = "nping"
 version = "0.3.0"
 edition = "2021"
+license = "MIT License"
+description = "Nping is a Ping tool developed in Rust. It supports concurrent Ping for multiple addresses, visual chart display, real-time data updates, and other features."
+authors = ["hanshuaikang https://github.com/hanshuaikang"]
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }
