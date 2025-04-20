@@ -5,7 +5,7 @@ use std::io::{self, Stdout};
 use std::error::Error;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use crate::ui::{draw_graph_view, draw_point_view, draw_table_view};
+use crate::ui::{draw_graph_view, draw_point_view, draw_table_view, draw_sparkline_view};
 
 /// init terminal
 pub fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>, Box<dyn Error>> {
@@ -50,7 +50,10 @@ pub fn draw_interface<B: Backend>(
                 let size = f.area();
                 draw_point_view::<B>(f, ip_data, errs, size);
             }
-
+            "sparkline" => {
+                let size = f.area();
+                draw_sparkline_view::<B>(f, ip_data, errs, size);
+            }
             _ => {
                 draw_graph_view::<B>(f, ip_data, errs);
             }
