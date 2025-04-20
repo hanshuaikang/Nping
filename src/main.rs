@@ -46,7 +46,7 @@ struct Args {
     )]
     multiple: i32,
 
-    #[arg(short, long, default_value = "graph", help = "view mode graph/table/point")]
+    #[arg(short, long, default_value = "graph", help = "View mode graph/table/point")]
     view_type: String,
 
     #[arg(short = 'o', long = "output", help = "Output file to save ping results")]
