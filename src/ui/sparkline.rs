@@ -19,19 +19,22 @@ pub fn draw_sparkline_view<B: Backend>(
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(
-            std::iter::once(Constraint::Length(1)) 
-                .chain(std::iter::once(Constraint::Length(1)))
+            std::iter::once(Constraint::Length(0))
+                .chain(std::iter::once(Constraint::Length(2)))
                 .chain(std::iter::repeat(Constraint::Length(5)).take(n))
                 .chain([Constraint::Min(6)])
                 .collect::<Vec<_>>()
         )
         .split(area);
 
-    // Update description line to English, styled like legend
-    let desc_line = Line::from(vec![
-        Span::styled("Note: blank area means timeout or error", Style::default().fg(Color::Yellow)),
+    let legend = Line::from(vec![
+        Span::styled(" 🏎  Nping SparkLine View ", Style::default().fg(Color::Cyan)),
+        Span::raw("("),
+        Span::raw(" Blank area means timeout or error"),
+        Span::raw(")"),
     ]);
-    let desc_para = Paragraph::new(desc_line);
+
+    let desc_para = Paragraph::new(legend);
     f.render_widget(desc_para, chunks[1]);
 
     for (i, ip) in data.iter().enumerate() {
