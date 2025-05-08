@@ -9,8 +9,9 @@
 
 <p align="center">
     <a href="https://hellogithub.com/repository/21f5600774554866a3d686308df2dbf0" target="_blank">
-        <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=21f5600774554866a3d686308df2dbf0&claim_uid=uT2Sc8Xli4PUA76&theme=neutral" alt="Featured｜HelloGitHub" style="width: 200px; height: 50px;" width="250" height="54" />
+        <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=21f5600774554866a3d686308df2dbf0&claim_uid=uT2Sc8Xli4PUA76&theme=neutral" alt="Featured｜HelloGitHub" style="width: 200px; height: 60px;" width="250" height="60" />
     </a>
+<a href="https://trendshift.io/repositories/13472" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13472" alt="hanshuaikang%2FNping | Trendshift" style="width: 200px; height: 60px;" width="250" height="55"/></a>
 </p>
 
 **图表视图**
@@ -46,12 +47,10 @@ nping --help
 - 实时最大最小平均延迟丢包率等指标展示
 - 支持 IpV4 和 IpV6
 - 支持一个地址下并发 Ping n 个 ip
+- 支持输出结果到文件
 
 ## 后续的计划:
-- 展示 IP 所属的国家和城市
-- 新增 host 子命令, 支持展示该域名所对应的 ip 地址的详细信息。
 - UI 界面优化, 增加更多的动态效果
-- 当存在多个地址时, 结束时根据平均延迟展示排序
 
 ## Usage
 
