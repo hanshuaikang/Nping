@@ -18,7 +18,7 @@ use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
 #[command(
-    version = "v0.3.0",
+    version = "v0.3.1",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
     about = "🏎  Nping mean NB Ping, A Ping Tool in Rust with Real-Time Data and Visualizations"
 )]
@@ -46,8 +46,11 @@ struct Args {
     )]
     multiple: i32,
 
-    #[arg(short, long, default_value = "graph", help = "view mode graph/table/point")]
+    #[arg(short, long, default_value = "graph", help = "View mode graph/table/point")]
     view_type: String,
+
+    #[arg(short = 'o', long = "output", help = "Output file to save ping results")]
+    output: Option<String>,
 }
 
 
@@ -86,6 +89,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    // check output file
+    if let Some(ref output_path) = args.output {
+        if std::path::Path::new(output_path).exists() {
+            eprintln!("Output file already exists: {}", output_path);
+            std::process::exit(1);
+        }
+    }
+
 
 
     // after de-duplication, the original order is still preserved
@@ -94,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|item| seen.insert(item.clone()))
         .collect();
 
-    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type).await;
+    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type, args.output).await;
 
     // if error print error message and exit
     if let Err(err) = res {
@@ -112,6 +123,7 @@ async fn run_app(
     force_ipv6: bool,
     multiple: i32,
     view_type: String,
+    output_file: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     // init terminal
@@ -186,10 +198,52 @@ async fn run_app(
         }
 
         thread::spawn(move || {
+            let mut output_file_handle = if let Some(ref output_path) = output_file {
+                match std::fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .open(output_path)
+                {
+                    Ok(file) => Some(file),
+                    Err(e) => {
+                        let mut errs = errs.lock().unwrap();
+                        errs.push(format!("Failed to create output file: {}", e));
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
             while let Ok(updated_data) = ping_update_rx.recv() {
+
                 let mut ip_data = ip_data.lock().unwrap();
+
+                let last_attr = updated_data.last_attr.clone();
+                let addr = updated_data.addr.clone();
+                let ip = updated_data.ip.clone();
+
                 if let Some(pos) = ip_data.iter().position(|d| d.addr == updated_data.addr && d.ip == updated_data.ip) {
                     ip_data[pos] = updated_data;
+                }
+
+
+                if let Some(ref mut file) = output_file_handle {
+                    use std::io::Write;
+
+                    let latency_str = if last_attr == -1.0 {
+                        "timeout".to_string()
+                    } else {
+                        format!("{:.2}ms", last_attr)
+                    };
+
+                    if let Err(e) = writeln!(file, "{} {} {}",
+                                             addr,
+                                             ip,
+                                             latency_str
+                    ) {
+                        let mut errs = errs.lock().unwrap();
+                        errs.push(format!("Failed to write to output file: {}", e));                    }
                 }
                 let mut guard = terminal_guard.lock().unwrap();
                 draw::draw_interface(
