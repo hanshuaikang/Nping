@@ -21,7 +21,6 @@
     <img src="docs/imgs/black.gif" alt="Nping demo" width="100%">
 </p>
 
-
 **Table View**
 <p align="center">
     <img src="docs/imgs/table.gif" alt="Nping demo" width="100%">
@@ -31,6 +30,12 @@
 <p align="center">
     <img src="docs/imgs/point.gif" alt="Nping demo" width="100%">
 </p>
+
+**Sparkline View**
+<p align="center">
+    <img src="docs/imgs/sparkline.gif" alt="Nping demo" width="100%">
+</p>
+
 
 ## Installation
 
@@ -72,7 +77,7 @@ Options:
   -i, --interval <INTERVAL>    Interval in seconds between pings [default: 0]
   -6, --force_ipv6             Force using IPv6
   -m, --multiple <MULTIPLE>    Specify the maximum number of target addresses, Only works on one target address [default: 0]
-  -v, --view-type <VIEW_TYPE>  View mode graph/table/point [default: graph]
+  -v, --view-type <VIEW_TYPE>  View mode graph/table/point/sparkline [default: graph]
   -o, --output <OUTPUT>        Output file to save ping results
   -h, --help                   Print help
   -V, --version                Print version

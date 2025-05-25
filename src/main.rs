@@ -18,7 +18,7 @@ use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
 #[command(
-    version = "v0.3.1",
+    version = "v0.4.0",
     author = "hanshuaikang<https://github.com/hanshuaikang>",
     about = "🏎  Nping mean NB Ping, A Ping Tool in Rust with Real-Time Data and Visualizations"
 )]
@@ -46,7 +46,7 @@ struct Args {
     )]
     multiple: i32,
 
-    #[arg(short, long, default_value = "graph", help = "View mode graph/table/point")]
+    #[arg(short, long, default_value = "graph", help = "View mode graph/table/point/sparkline")]
     view_type: String,
 
     #[arg(short = 'o', long = "output", help = "Output file to save ping results")]
