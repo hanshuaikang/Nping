@@ -167,7 +167,7 @@ async fn run_app(
     }).collect::<Vec<_>>()));
 
     let mut point_num = 10;
-    if view_type == "point" {
+    if view_type == "point" || view_type == "sparkline" {
         point_num = 200;
     }
 
@@ -277,7 +277,6 @@ async fn run_app(
     for task in tasks {
         task.await?;
     }
-
     // restore terminal
     draw::restore_terminal(&mut terminal_guard.lock().unwrap().terminal.as_mut().unwrap())?;
 
