@@ -70,21 +70,29 @@ pub fn draw_sparkline_view<B: Backend>(
             Span::raw(" Loss: "),
             Span::styled(format!("{:.2}%", loss_pkg), Style::default().fg(loss_pkg_color)),
         ]);
-        
+
         let info_para = Paragraph::new(info_line).wrap(Wrap { trim: true });
         f.render_widget(info_para, chunks[i + 2]);
-        let spark_data: Vec<u64> = ip.rtts.iter().map(|&rtt| if rtt < 0.0 { 0 } else { rtt as u64 }).collect();
-        let spark = Sparkline::default()
-            .block(Block::default().borders(Borders::ALL).title("RTT Sparkline"))
-            .data(&spark_data)
-            .style(Style::default().fg(Color::LightBlue));
-            
+
         let spark_rect = Rect {
             x: chunks[i + 2].x,
             y: chunks[i + 2].y + 1,
             width: chunks[i + 2].width,
             height: chunks[i + 2].height.saturating_sub(1),
         };
+
+        let rtts_len = ip.rtts.len();
+        let width = spark_rect.width as usize;
+        let spark_data: Vec<u64> = ip.rtts
+            .iter()
+            .skip(rtts_len.saturating_sub(width))
+            .map(|&rtt| if rtt < 0.0 { 0 } else { rtt as u64 })
+            .collect();
+
+        let spark = Sparkline::default()
+            .block(Block::default().borders(Borders::ALL).title("RTT Sparkline"))
+            .data(&spark_data)
+            .style(Style::default().fg(Color::LightBlue));
         f.render_widget(spark, spark_rect);
     }
 
