@@ -9,7 +9,7 @@ mod data_processor;
 use clap::Parser;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
-use tokio::task;
+use tokio::{task, runtime::Builder};
 use crate::ip_data::IpData;
 use crate::ping_event::PingEvent;
 use crate::data_processor::start_data_processor;
@@ -54,8 +54,7 @@ struct Args {
 }
 
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse command line arguments
     let args = Args::parse();
 
@@ -78,7 +77,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|item| seen.insert(item.clone()))
         .collect();
 
-    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type, args.output).await;
+    // Calculate worker threads based on IP count
+    let ip_count = if targets.len() == 1 && args.multiple > 0 {
+        args.multiple as usize
+    } else {
+        targets.len()
+    };
+    let worker_threads = (ip_count +  1).max(1);
+
+    // Create tokio runtime with specific worker thread count
+    let rt = Builder::new_multi_thread()
+        .worker_threads(worker_threads)
+        .enable_all()
+        .build()?;
+
+    let res = rt.block_on(run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type, args.output));
 
     // if error print error message and exit
     if let Err(err) = res {
