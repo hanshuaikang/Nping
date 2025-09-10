@@ -181,6 +181,7 @@ async fn run_app(
     {
         let mut guard = terminal_guard.lock().unwrap();
         let ip_data = ip_data.lock().unwrap();
+
         draw::draw_interface(
             &mut guard.terminal.as_mut().unwrap(),
             &view_type,
@@ -207,23 +208,37 @@ async fn run_app(
         tasks.push(task)
     }
 
-    // start UI update loop after ping tasks are spawned
-    {
-        let mut guard = terminal_guard.lock().unwrap();
+    // Spawn UI task in background
+    let running_for_ui = running.clone();
+    let terminal_guard_for_ui = terminal_guard.clone();
+    let view_type_for_ui = view_type.clone();
+    let ip_data_for_ui = ip_data.clone();
+    let errs_for_ui = errs.clone();
+    
+    let ui_task = task::spawn(async move {
+        let mut guard = terminal_guard_for_ui.lock().unwrap();
         draw::draw_interface_with_updates(
             &mut guard.terminal.as_mut().unwrap(),
-            &view_type,
-            &ip_data,
+            &view_type_for_ui,
+            &ip_data_for_ui,
             ui_data_rx,
-            running.clone(),
-            errs.clone(),
+            running_for_ui,
+            errs_for_ui,
             output_file,
         ).ok();
-    }
+    });
 
+    // Wait for all ping tasks to complete
     for task in tasks {
         task.await?;
     }
+    
+    // All ping tasks completed, signal UI to exit
+    *running.lock().unwrap() = false;
+    
+    // Wait for UI task to finish
+    ui_task.await?;
+    
     // restore terminal
     draw::restore_terminal(&mut terminal_guard.lock().unwrap().terminal.as_mut().unwrap())?;
 
