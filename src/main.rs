@@ -3,17 +3,17 @@ mod draw;
 mod terminal;
 mod ip_data;
 mod ui;
+mod ping_event;
+mod data_processor;
 
 use clap::Parser;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
-use tokio::task;
+use tokio::{task, runtime::Builder};
 use crate::ip_data::IpData;
+use crate::ping_event::PingEvent;
+use crate::data_processor::start_data_processor;
 use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
-use ratatui::crossterm::event;
-use ratatui::crossterm::event::{Event, KeyCode, KeyModifiers};
 use crate::network::send_ping;
 
 #[derive(Parser, Debug)]
@@ -54,40 +54,12 @@ struct Args {
 }
 
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // parse command line arguments
     let args = Args::parse();
 
     // set Ctrl+C and q and esc to exit
     let running = Arc::new(Mutex::new(true));
-    {
-        let running = running.clone();
-        thread::spawn(move || {
-            loop {
-                // if running is false, exit the loop
-                if !*running.lock().unwrap() {
-                    break;
-                }
-
-                if let Ok(true) = event::poll(Duration::from_millis(50)) {
-                    if let Ok(Event::Key(key)) = event::read() {
-                        match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => {
-                                *running.lock().unwrap() = false;
-                                break;
-                            },
-                            KeyCode::Char('c') if key.modifiers == KeyModifiers::CONTROL => {
-                                *running.lock().unwrap() = false;
-                                break;
-                            },
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        });
-    }
 
     // check output file
     if let Some(ref output_path) = args.output {
@@ -105,7 +77,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|item| seen.insert(item.clone()))
         .collect();
 
-    let res = run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type, args.output).await;
+    // Calculate worker threads based on IP count
+    let ip_count = if targets.len() == 1 && args.multiple > 0 {
+        args.multiple as usize
+    } else {
+        targets.len()
+    };
+    let worker_threads = (ip_count +  1).max(1);
+
+    // Create tokio runtime with specific worker thread count
+    let rt = Builder::new_multi_thread()
+        .worker_threads(worker_threads)
+        .enable_all()
+        .build()?;
+
+    let res = rt.block_on(run_app(targets, args.count, args.interval, running.clone(), args.force_ipv6, args.multiple, args.view_type, args.output));
 
     // if error print error message and exit
     if let Err(err) = res {
@@ -134,10 +120,13 @@ async fn run_app(
     let terminal_guard = Arc::new(Mutex::new(terminal::TerminalGuard::new(terminal)));
 
 
-    // ip channel
-    let (ping_update_tx, ping_update_rx) = mpsc::sync_channel::<IpData>(0);
+    // ping event channel (network -> data processor)
+    let (ping_event_tx, ping_event_rx) = mpsc::sync_channel::<PingEvent>(0);
+    
+    // ui data channel (data processor -> ui)
+    let (ui_data_tx, ui_data_rx) = mpsc::sync_channel::<IpData>(0);
 
-    let ping_update_tx = Arc::new(ping_update_tx);
+    let ping_event_tx = Arc::new(ping_event_tx);
 
 
     let mut ips = Vec::new();
@@ -153,7 +142,7 @@ async fn run_app(
         }
     }
 
-    // Define statistics variables
+    // Define initial data for UI
     let ip_data = Arc::new(Mutex::new(ips.iter().enumerate().map(|(i, _)| IpData {
         ip: String::new(),
         addr: if targets.len() == 1 { targets[0].clone() } else { targets[i].clone() },
@@ -166,10 +155,19 @@ async fn run_app(
         pop_count: 0,
     }).collect::<Vec<_>>()));
 
-    let mut point_num = 10;
-    if view_type == "point" || view_type == "sparkline" {
-        point_num = 200;
-    }
+    // Start data processor
+    let targets_for_processor: Vec<(String, String)> = ips.iter().enumerate().map(|(i, ip)| {
+        let addr = if targets.len() == 1 { targets[0].clone() } else { targets[i].clone() };
+        (addr, ip.clone())
+    }).collect();
+    
+    start_data_processor(
+        ping_event_rx,
+        ui_data_tx,
+        targets_for_processor,
+        view_type.clone(),
+        running.clone(),
+    );
 
     let view_type = Arc::new(view_type);
 
@@ -179,81 +177,16 @@ async fn run_app(
     let mut tasks = Vec::new();
 
 
+    // first draw ui
     {
-        let ip_data = ip_data.clone();
-        let errs = errs.clone();
-        let terminal_guard = terminal_guard.clone();
-        let view_type = view_type.clone();
-
-        {
-            let mut guard = terminal_guard.lock().unwrap();
-            let ip_data = ip_data.lock().unwrap();
-            // first draw ui
-            draw::draw_interface(
-                &mut guard.terminal.as_mut().unwrap(),
-                &view_type,
-                &ip_data,
-                &mut errs.lock().unwrap(),
-            ).ok();
-        }
-
-        thread::spawn(move || {
-            let mut output_file_handle = if let Some(ref output_path) = output_file {
-                match std::fs::OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .open(output_path)
-                {
-                    Ok(file) => Some(file),
-                    Err(e) => {
-                        let mut errs = errs.lock().unwrap();
-                        errs.push(format!("Failed to create output file: {}", e));
-                        None
-                    }
-                }
-            } else {
-                None
-            };
-
-            while let Ok(updated_data) = ping_update_rx.recv() {
-
-                let mut ip_data = ip_data.lock().unwrap();
-
-                let last_attr = updated_data.last_attr.clone();
-                let addr = updated_data.addr.clone();
-                let ip = updated_data.ip.clone();
-
-                if let Some(pos) = ip_data.iter().position(|d| d.addr == updated_data.addr && d.ip == updated_data.ip) {
-                    ip_data[pos] = updated_data;
-                }
-
-
-                if let Some(ref mut file) = output_file_handle {
-                    use std::io::Write;
-
-                    let latency_str = if last_attr == -1.0 {
-                        "timeout".to_string()
-                    } else {
-                        format!("{:.2}ms", last_attr)
-                    };
-
-                    if let Err(e) = writeln!(file, "{} {} {}",
-                                             addr,
-                                             ip,
-                                             latency_str
-                    ) {
-                        let mut errs = errs.lock().unwrap();
-                        errs.push(format!("Failed to write to output file: {}", e));                    }
-                }
-                let mut guard = terminal_guard.lock().unwrap();
-                draw::draw_interface(
-                    &mut guard.terminal.as_mut().unwrap(),
-                    &view_type,
-                    &ip_data,
-                    &mut errs.lock().unwrap(),
-                ).ok();
-            }
-        });
+        let mut guard = terminal_guard.lock().unwrap();
+        let ip_data = ip_data.lock().unwrap();
+        draw::draw_interface(
+            &mut guard.terminal.as_mut().unwrap(),
+            &view_type,
+            &ip_data,
+            &mut errs.lock().unwrap(),
+        ).ok();
     }
     for (i, ip) in ips.iter().enumerate() {
         let ip = ip.clone();
@@ -261,17 +194,31 @@ async fn run_app(
         let errs = errs.clone();
         let task = task::spawn({
             let errs = errs.clone();
-            let ping_update_tx = ping_update_tx.clone();
+            let ping_event_tx = ping_event_tx.clone();
             let ip_data = ip_data.clone();
             let mut data = ip_data.lock().unwrap();
             // update the ip
             data[i].ip = ip.clone();
             let addr = data[i].addr.clone();
             async move {
-                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), ping_update_tx, point_num).await.unwrap();
+                send_ping(addr, ip, errs.clone(), count, interval, running.clone(), ping_event_tx).await.unwrap();
             }
         });
         tasks.push(task)
+    }
+
+    // start UI update loop after ping tasks are spawned
+    {
+        let mut guard = terminal_guard.lock().unwrap();
+        draw::draw_interface_with_updates(
+            &mut guard.terminal.as_mut().unwrap(),
+            &view_type,
+            &ip_data,
+            ui_data_rx,
+            running.clone(),
+            errs.clone(),
+            output_file,
+        ).ok();
     }
 
     for task in tasks {
