@@ -167,4 +167,4 @@ Thanks to these self-media for reposting and paying attention to 🏎NBping!
 | [X:@geekbb](https://x.com/geekbb/status/1875754541905539510) | [公众号:一飞开源](https://mp.weixin.qq.com/s/BZjr54h8dIQgzr8UW3fwOQ) | [公众号: 开源日记](https://mp.weixin.qq.com/s/uGtkD4x_XOFyKNbIy5pHYA)
 
 ## Star History
-[![Star History Chart](https://api.star-history.com/svg?repos=hanshuaikang/Nping&type=Date)](https://star-history.com/#hanshuaikang/Nping&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=hanshuaikang/Nping&type=Date)](https://star-history.dera.page/#hanshuaikang/Nping&Date)
