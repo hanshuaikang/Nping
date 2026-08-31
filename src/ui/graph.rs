@@ -157,28 +157,36 @@ fn render_target(f: &mut Frame, area: Rect, data: &IpData, theme: &Theme) {
         data.max_rtt.max(1.0)
     };
 
-    let data_points: Vec<(f64, f64)> = data
-        .rtts
-        .iter()
-        .enumerate()
-        .skip(skip)
-        .map(|(i, &y)| {
-            let x = data.pop_count as f64 + i as f64 + 1.0;
-            let plot_y = if y < 0.0 { plot_max * 1.05 } else { y };
-            (x, plot_y)
-        })
-        .collect();
+    // Timeouts must read as packet loss, not as a normal-looking line (#119):
+    // the RTT line breaks at each timeout, and the timeout itself is drawn as
+    // a red marker pinned above the highest RTT in the window.
+    let timeout_y = plot_max * 1.05;
+    let (line_segments, timeout_points) =
+        split_rtt_series(&data.rtts, skip, data.pop_count as f64, timeout_y);
 
     let line_color = theme.rtt_color(avg_rtt, plot_max);
-    let datasets = vec![Dataset::default()
-        .marker(symbols::Marker::Braille)
-        .style(Style::default().fg(line_color).bg(theme.bg))
-        .graph_type(ratatui::widgets::GraphType::Line)
-        .data(&data_points)];
+    let mut datasets: Vec<Dataset> = line_segments
+        .iter()
+        .map(|segment| {
+            Dataset::default()
+                .marker(symbols::Marker::Braille)
+                .style(Style::default().fg(line_color).bg(theme.bg))
+                .graph_type(ratatui::widgets::GraphType::Line)
+                .data(segment)
+        })
+        .collect();
+    datasets.push(
+        Dataset::default()
+            .marker(symbols::Marker::HalfBlock)
+            .style(Style::default().fg(theme.danger).bg(theme.bg))
+            .graph_type(ratatui::widgets::GraphType::Scatter)
+            .data(&timeout_points),
+    );
 
+    let window_len = total_len - skip;
     let y_bounds = [0.0, plot_max * 1.2];
     let x_start = window_offset + 1.0;
-    let x_end = x_start + (data_points.len().max(1) as f64) - 1.0;
+    let x_end = x_start + (window_len.max(1) as f64) - 1.0;
 
     // Pin every chart sub-style's bg to the theme bg, otherwise ratatui's
     // Style::default() resets bg to terminal default and the plot area
@@ -237,4 +245,75 @@ fn render_target(f: &mut Frame, area: Rect, data: &IpData, theme: &Theme) {
             )),
     );
     f.render_widget(recent, inner_chunks[2]);
+}
+
+/// Splits the windowed RTT series into contiguous line segments of valid
+/// samples plus the timeout positions (the `-1.0` sentinel), so the chart
+/// shows a gap with an explicit marker instead of bridging across timeouts.
+#[allow(clippy::type_complexity)]
+fn split_rtt_series(
+    rtts: &std::collections::VecDeque<f64>,
+    skip: usize,
+    x_offset: f64,
+    timeout_y: f64,
+) -> (Vec<Vec<(f64, f64)>>, Vec<(f64, f64)>) {
+    let mut segments: Vec<Vec<(f64, f64)>> = Vec::new();
+    let mut timeouts: Vec<(f64, f64)> = Vec::new();
+    let mut current: Vec<(f64, f64)> = Vec::new();
+
+    for (i, &y) in rtts.iter().enumerate().skip(skip) {
+        let x = x_offset + i as f64 + 1.0;
+        if y < 0.0 {
+            timeouts.push((x, timeout_y));
+            if !current.is_empty() {
+                segments.push(std::mem::take(&mut current));
+            }
+        } else {
+            current.push((x, y));
+        }
+    }
+    if !current.is_empty() {
+        segments.push(current);
+    }
+
+    (segments, timeouts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_rtt_series;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn test_split_no_timeouts_single_segment() {
+        let rtts: VecDeque<f64> = vec![10.0, 12.0, 11.0].into();
+        let (segments, timeouts) = split_rtt_series(&rtts, 0, 0.0, 100.0);
+        assert_eq!(segments, vec![vec![(1.0, 10.0), (2.0, 12.0), (3.0, 11.0)]]);
+        assert!(timeouts.is_empty());
+    }
+
+    #[test]
+    fn test_split_timeout_breaks_line() {
+        let rtts: VecDeque<f64> = vec![10.0, -1.0, 12.0].into();
+        let (segments, timeouts) = split_rtt_series(&rtts, 0, 0.0, 100.0);
+        assert_eq!(segments, vec![vec![(1.0, 10.0)], vec![(3.0, 12.0)]]);
+        assert_eq!(timeouts, vec![(2.0, 100.0)]);
+    }
+
+    #[test]
+    fn test_split_all_timeouts_no_line() {
+        let rtts: VecDeque<f64> = vec![-1.0, -1.0, -1.0].into();
+        let (segments, timeouts) = split_rtt_series(&rtts, 0, 0.0, 1.05);
+        assert!(segments.is_empty());
+        assert_eq!(timeouts, vec![(1.0, 1.05), (2.0, 1.05), (3.0, 1.05)]);
+    }
+
+    #[test]
+    fn test_split_respects_skip_and_offset() {
+        let rtts: VecDeque<f64> = vec![5.0, -1.0, 7.0, 8.0].into();
+        let (segments, timeouts) = split_rtt_series(&rtts, 2, 10.0, 100.0);
+        // Only indices 2 and 3 are in the window; x = offset + index + 1.
+        assert_eq!(segments, vec![vec![(13.0, 7.0), (14.0, 8.0)]]);
+        assert!(timeouts.is_empty());
+    }
 }
