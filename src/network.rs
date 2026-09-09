@@ -113,7 +113,14 @@ impl PingTask {
             match stream.recv() {
                 Ok(result) => {
                     match result {
-                        PingResult::Pong(duration, _size) => {
+                        PingResult::Pong(duration, line) => {
+                            // macOS ping may emit duplicate replies from another concurrent
+                            // ping process. These can contain bogus RTT values and must not
+                            // be included in the statistics.
+                            if line.contains("(DUP!)") {
+                                continue;
+                            }
+
                             // calculate rtt
                             let rtt = duration.as_secs_f64() * 1000.0;
                             let rtt_display: f64 = format!("{:.2}", rtt).parse().unwrap();
