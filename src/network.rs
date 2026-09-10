@@ -63,6 +63,17 @@ pub struct PingTask {
     errs: Arc<Mutex<Vec<String>>>,
 }
 
+fn ping_reply_source(line: &str) -> Option<IpAddr> {
+    let source = line
+        .split_once(" bytes from ")?
+        .1
+        .split_whitespace()
+        .next()?
+        .trim_end_matches([':', ',']);
+
+    source.parse().ok()
+}
+
 impl PingTask {
     pub fn new(
         addr: String,
@@ -113,8 +124,19 @@ impl PingTask {
             match stream.recv() {
                 Ok(result) => {
                     match result {
-                        PingResult::Pong(duration, _size) => {
-                            // calculate rtt
+                        PingResult::Pong(duration, line) => {
+                            if let (Some(source), Ok(target)) =
+                                (ping_reply_source(&line), self.ip.parse::<IpAddr>())
+                            {
+                                if source != target {
+                                    continue;
+                                }
+                            }
+
+                            if line.contains("(DUP!)") {
+                                continue;
+                            }
+
                             let rtt = duration.as_secs_f64() * 1000.0;
                             let rtt_display: f64 = format!("{:.2}", rtt).parse().unwrap();
                             
