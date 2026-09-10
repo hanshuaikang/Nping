@@ -63,6 +63,17 @@ pub struct PingTask {
     errs: Arc<Mutex<Vec<String>>>,
 }
 
+fn ping_reply_source(line: &str) -> Option<IpAddr> {
+    let source = line
+        .split_once(" bytes from ")?
+        .1
+        .split_whitespace()
+        .next()?
+        .trim_end_matches([':', ',']);
+
+    source.parse().ok()
+}
+
 impl PingTask {
     pub fn new(
         addr: String,
@@ -114,14 +125,18 @@ impl PingTask {
                 Ok(result) => {
                     match result {
                         PingResult::Pong(duration, line) => {
-                            // macOS ping may emit duplicate replies from another concurrent
-                            // ping process. These can contain bogus RTT values and must not
-                            // be included in the statistics.
+                            if let (Some(source), Ok(target)) =
+                                (ping_reply_source(&line), self.ip.parse::<IpAddr>())
+                            {
+                                if source != target {
+                                    continue;
+                                }
+                            }
+
                             if line.contains("(DUP!)") {
                                 continue;
                             }
 
-                            // calculate rtt
                             let rtt = duration.as_secs_f64() * 1000.0;
                             let rtt_display: f64 = format!("{:.2}", rtt).parse().unwrap();
                             
